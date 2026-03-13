@@ -1,0 +1,13 @@
+# Dependências e builds
+node_modules/
+dist/
+.svelte-kit/
+
+# Ficheiros sensíveis (não fazer commit de chaves/segredos)
+.env
+.env.*
+!.env.example
+
+# IDE e sistema
+.idea/
+.DS_Store

@@ -1,0 +1,584 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x", "windows"]
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+  schemas  = ["dbo", "exemplo"]
+}
+
+model editora {
+  id         Int     @id(map: "PK_editora") @default(autoincrement())
+  designacao String  @db.NVarChar(250)
+  nif        String? @db.NVarChar(20)
+
+  @@schema("exemplo")
+}
+
+model gpedidos_access_log {
+  id_access_log    Int              @id(map: "PK__gpedidos__CAF0B50076D4F152") @default(autoincrement())
+  id_utilizador    String           @db.NVarChar(50)
+  id_pedido        Int
+  data_hora        DateTime         @default(now(), map: "DF__gpedidos___data___1DB06A4F") @db.DateTime
+  gpedidos_pedidos gpedidos_pedidos @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_pe__2EDAF651")
+  im_utilizador    im_utilizador    @relation(fields: [id_utilizador], references: [id_utilizador], onUpdate: NoAction, map: "FK__gpedidos___id_ut__2FCF1A8A")
+
+  @@schema("dbo")
+}
+
+model gpedidos_alvos {
+  id_alvo                 Int                       @id(map: "PK__gpedidos__8A14BD15815E5662") @default(autoincrement())
+  nome                    String?                   @db.NVarChar(100)
+  gpedidos_servicos_alvos gpedidos_servicos_alvos[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_categoria_utilizador {
+  id_categoria        Int
+  id_utilizador       String              @db.NVarChar(50)
+  gpedidos_categorias gpedidos_categorias @relation(fields: [id_categoria], references: [id_categoria], onUpdate: NoAction, map: "FK__gpedidos___id_ca__30C33EC3")
+  im_utilizador       im_utilizador       @relation(fields: [id_utilizador], references: [id_utilizador], onUpdate: NoAction, map: "FK__gpedidos___id_ut__31B762FC")
+
+  @@id([id_categoria, id_utilizador], map: "PK__gpedidos__EA48EF321AB097F0")
+  @@schema("dbo")
+}
+
+model gpedidos_categorias {
+  id_categoria                  Int                             @id(map: "PK__gpedidos__CD54BC5A588850F9") @default(autoincrement())
+  id_departamento               Int?
+  nome                          String                          @unique(map: "unique_nome_categoria") @db.NVarChar(100)
+  gpedidos_categoria_utilizador gpedidos_categoria_utilizador[]
+  gpedidos_departamentos        gpedidos_departamentos?         @relation(fields: [id_departamento], references: [id_departamento], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_de__32AB8735")
+  gpedidos_servicos             gpedidos_servicos[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_cc {
+  id_pedido        Int
+  id_utilizador    String           @db.NVarChar(50)
+  parecer          Boolean?
+  observacao       String?          @db.NVarChar(Max)
+  gpedidos_pedidos gpedidos_pedidos @relation(fields: [id_pedido], references: [id_pedido], onUpdate: NoAction, map: "gpedidos_cc_gpedidos_pedidos_id_pedido_fk")
+  im_utilizador    im_utilizador    @relation(fields: [id_utilizador], references: [id_utilizador], onUpdate: NoAction, map: "gpedidos_cc_im_utilizador_id_utilizador_fk")
+
+  @@id([id_pedido, id_utilizador], map: "gpedidos_pedidos_utilizador")
+  @@schema("dbo")
+}
+
+model gpedidos_chat {
+  id                     Int                      @id(map: "PK__gpedidos__3213E83FAA17C088") @default(autoincrement())
+  id_pedido              Int?
+  id_utilizador          String                   @db.NVarChar(50)
+  mensagem               String?                  @db.NVarChar(Max)
+  createdAt              DateTime?                @default(now(), map: "DF__gpedidos___creat__1EA48E88")
+  lido                   Boolean?
+  gpedidos_pedidos       gpedidos_pedidos?        @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_pe__3587F3E0")
+  im_utilizador          im_utilizador            @relation(fields: [id_utilizador], references: [id_utilizador], onUpdate: NoAction, map: "FK__gpedidos___id_ut__367C1819")
+  gpedidos_chat_ficheiro gpedidos_chat_ficheiro[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_chat_ficheiro {
+  id            Int            @id(map: "gpedidos_chat_ficheiro_pk") @default(autoincrement())
+  id_chat       Int?
+  nome_ficheiro String?        @db.NVarChar(Max)
+  gpedidos_chat gpedidos_chat? @relation(fields: [id_chat], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "gpedidos_chat_ficheiro_gpedidos_chat_id_fk")
+
+  @@schema("dbo")
+}
+
+model gpedidos_departamento_utilizador {
+  id_dpt_utilizador      Int                    @id(map: "PK__gpedidos__22049B2421B6E9BA") @default(autoincrement())
+  id_departamento        Int
+  id_utilizador          String                 @db.NVarChar(50)
+  horas_tickets          Int?
+  gpedidos_departamentos gpedidos_departamentos @relation(fields: [id_departamento], references: [id_departamento], onUpdate: NoAction, map: "FK__gpedidos___id_de__3864608B")
+  im_utilizador          im_utilizador          @relation(fields: [id_utilizador], references: [id_utilizador], onUpdate: NoAction, map: "FK__gpedidos___id_ut__395884C4")
+
+  @@schema("dbo")
+}
+
+model gpedidos_departamentos {
+  id_departamento                  Int                                @id(map: "PK__gpedidos__64F37A165CE34CD0") @default(autoincrement())
+  nome                             String                             @unique(map: "unique_nome") @db.NVarChar(100)
+  gpedidos_categorias              gpedidos_categorias[]
+  gpedidos_departamento_utilizador gpedidos_departamento_utilizador[]
+  gpedidos_departamentos_admin     gpedidos_departamentos_admin[]
+  gpedidos_responsaveis            gpedidos_responsaveis[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_departamentos_admin {
+  id_departamento_admin  Int                     @id(map: "PK__gpedidos__58A3760B0457E5DC") @default(autoincrement())
+  id_departamento        Int?
+  id_admin               String?                 @db.NVarChar(50)
+  im_utilizador          im_utilizador?          @relation(fields: [id_admin], references: [id_utilizador], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_ad__3A4CA8FD")
+  gpedidos_departamentos gpedidos_departamentos? @relation(fields: [id_departamento], references: [id_departamento], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_de__3B40CD36")
+
+  @@unique([id_departamento, id_admin], map: "unique_departamentoAdmin")
+  @@schema("dbo")
+}
+
+model gpedidos_estados {
+  id_estado        Int                @id(map: "PK__gpedidos__86989FB221AF201B") @default(autoincrement())
+  nome             String             @db.NVarChar(100)
+  gpedidos_pedidos gpedidos_pedidos[]
+  gpedidos_tarefas gpedidos_tarefas[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_inquerito {
+  id_inquerito                Int                           @id(map: "gpedidos_inquerito_pk") @default(autoincrement())
+  id_pedido                   Int?
+  respondido                  Boolean?
+  observacao                  String?                       @db.NVarChar(Max)
+  gpedidos_pedidos            gpedidos_pedidos?             @relation(fields: [id_pedido], references: [id_pedido], onDelete: NoAction, onUpdate: NoAction, map: "gpedidos_inquerito_gpedidos_pedidos_id_pedido_fk")
+  gpedidos_inquerito_pergunta gpedidos_inquerito_pergunta[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_inquerito_pergunta {
+  id_inquerito       Int
+  id_pergunta        Int
+  opcao              String?            @db.NVarChar(50)
+  gpedidos_inquerito gpedidos_inquerito @relation(fields: [id_inquerito], references: [id_inquerito], onUpdate: NoAction, map: "gpedidos_inquerito_pergunta_gpedidos_inquerito_id_inquerito_fk")
+  gpedidos_pergunta  gpedidos_pergunta  @relation(fields: [id_pergunta], references: [id_pergunta], onUpdate: NoAction, map: "gpedidos_inquerito_pergunta_gpedidos_pergunta_id_pergunta_fk")
+
+  @@id([id_inquerito, id_pergunta], map: "gpedidos_inquerito_pergunta_pk")
+  @@schema("dbo")
+}
+
+model gpedidos_nome_ficheiro_servico {
+  id_nome_ficheiro_servico Int                @id(map: "PK__gpedidos__38F1475C1FB4C4D2") @default(autoincrement())
+  id_servico               Int?
+  nome_ficheiro            String?            @db.VarChar(100)
+  gpedidos_servicos        gpedidos_servicos? @relation(fields: [id_servico], references: [id_servico], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_se__3F115E1A")
+
+  @@schema("dbo")
+}
+
+model gpedidos_notificacoes {
+  id_notificacao             Int            @id(map: "gpedidos_notificacoes_pk") @default(autoincrement())
+  id_utilizador              String?        @unique(map: "gpedidos_notificacoes_pk2") @db.NVarChar(50)
+  notificacao_estado         Boolean?       @default(true, map: "DF__gpedidos___notif__1F98B2C1")
+  notificacao_estado_email   Boolean?       @default(true, map: "DF__gpedidos___notif__208CD6FA")
+  notificacao_estado_app     Boolean?       @default(true, map: "DF__gpedidos___notif__2180FB33")
+  notificacao_mensagem       Boolean?       @default(true, map: "DF__gpedidos___notif__22751F6C")
+  notificacao_mensagem_email Boolean?       @default(true, map: "DF__gpedidos___notif__236943A5")
+  notificacao_mensagem_app   Boolean?       @default(true, map: "DF__gpedidos___notif__245D67DE")
+  im_utilizador              im_utilizador? @relation(fields: [id_utilizador], references: [id_utilizador], onDelete: NoAction, onUpdate: NoAction, map: "gpedidos_notificacoes_im_utilizador_id_utilizador_fk")
+
+  @@schema("dbo")
+}
+
+model gpedidos_pedido_ficheiro {
+  id_ficheiro      Int              @id(map: "PK__gpedidos__C68C6C2DDAD97D96") @default(autoincrement())
+  id_pedido        Int
+  nome             String           @db.NVarChar(Max)
+  data_registo     DateTime         @default(now(), map: "DF__gpedidos___data___25518C17") @db.DateTime
+  gpedidos_pedidos gpedidos_pedidos @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_pe__40F9A68C")
+
+  @@schema("dbo")
+}
+
+model gpedidos_pedido_servico {
+  id_servico        Int
+  id_pedido         Int
+  gpedidos_pedidos  gpedidos_pedidos  @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_pe__41EDCAC5")
+  gpedidos_servicos gpedidos_servicos @relation(fields: [id_servico], references: [id_servico], onUpdate: NoAction, map: "FK__gpedidos___id_se__42E1EEFE")
+
+  @@id([id_servico, id_pedido], map: "PK__gpedidos__5690B4EA746514FF")
+  @@schema("dbo")
+}
+
+model gpedidos_pedidos {
+  id_pedido                   Int                        @id(map: "PK__gpedidos__6FF01489AC2164A2") @default(autoincrement())
+  id_requerente               String                     @db.NVarChar(50)
+  assunto                     String?                    @db.NVarChar(50)
+  data_abertura               DateTime                   @default(now(), map: "DF__gpedidos___data___2645B050") @db.DateTime
+  data_fecho                  DateTime?                  @db.DateTime
+  data_entrega_proposta       DateTime?                  @db.Date
+  data_entrega_prevista       DateTime?                  @db.Date
+  data_analise                DateTime?                  @db.DateTime
+  id_estado                   Int                        @default(1, map: "DF__gpedidos___id_es__2739D489")
+  justificacao                String?                    @db.NVarChar(500)
+  descricao                   String?
+  id_prioridade               Int                        @default(1, map: "DF__gpedidos___id_pr__282DF8C2")
+  grupo                       Int
+  msg_reabertura              String?                    @db.NVarChar(200)
+  data_aprovacao              DateTime?                  @db.DateTime
+  data_rejeicao               DateTime?                  @db.DateTime
+  anomalia                    Boolean?
+  quebra_servico              Boolean?
+  accoes_formacao             Boolean?
+  impacto                     Int?
+  urgencia                    Int?
+  prioridade_anomalia         Int?
+  idcard_card_type            String?                    @db.NVarChar(50)
+  idcard_num_utilizador       String?                    @db.NVarChar(50)
+  idcard_cd_curso             Int?
+  idcard_cd_grupo_disciplinar Int?
+  ignorar_metrica             Boolean?                   @default(false, map: "DF__gpedidos___ignor__29221CFB")
+  gpedidos_access_log         gpedidos_access_log[]
+  gpedidos_cc                 gpedidos_cc[]
+  gpedidos_chat               gpedidos_chat[]
+  gpedidos_inquerito          gpedidos_inquerito[]
+  gpedidos_pedido_ficheiro    gpedidos_pedido_ficheiro[]
+  gpedidos_pedido_servico     gpedidos_pedido_servico[]
+  gpedidos_estados            gpedidos_estados           @relation(fields: [id_estado], references: [id_estado], onUpdate: NoAction, map: "FK__gpedidos___id_es__43D61337")
+  gpedidos_prioridades        gpedidos_prioridades       @relation(fields: [id_prioridade], references: [id_prioridade], onUpdate: NoAction, map: "FK__gpedidos___id_pr__44CA3770")
+  im_utilizador               im_utilizador              @relation(fields: [id_requerente], references: [id_utilizador], onUpdate: NoAction, map: "FK__gpedidos___id_re__45BE5BA9")
+  gpedidos_responsaveis       gpedidos_responsaveis      @relation(fields: [grupo], references: [id], onUpdate: NoAction, map: "FK_gpedidos_id_responsavel")
+  gpedidos_tarefas            gpedidos_tarefas[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_pergunta {
+  id_pergunta                 Int                           @id(map: "gpedidos_pergunta_pk") @default(autoincrement())
+  pergunta                    String?                       @db.NVarChar(100)
+  gpedidos_inquerito_pergunta gpedidos_inquerito_pergunta[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_prioridades {
+  id_prioridade    Int                @id(map: "PK__gpedidos__FFE370156A6B5E0F")
+  nome             String?            @db.VarChar(50)
+  gpedidos_pedidos gpedidos_pedidos[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_responsaveis {
+  id                             Int                              @id(map: "PK__gpedidos__3213E83F88771913") @default(autoincrement())
+  nome                           String?                          @db.NVarChar(100)
+  id_departamento                Int?
+  gpedidos_pedidos               gpedidos_pedidos[]
+  gpedidos_departamentos         gpedidos_departamentos?          @relation(fields: [id_departamento], references: [id_departamento], onDelete: NoAction, onUpdate: NoAction, map: "gpedidos_responsaveis_gpedidos_departamentos_id_departamento_fk")
+  gpedidos_responsaveis_admin    gpedidos_responsaveis_admin[]
+  gpedidos_servicos_responsaveis gpedidos_servicos_responsaveis[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_responsaveis_admin {
+  id_gpedidos_resp_admin Int                    @id(map: "PK__gpedidos__8C929847BF67342F") @default(autoincrement())
+  id_responsavel         Int?
+  id_admin               String?                @db.NVarChar(50)
+  im_utilizador          im_utilizador?         @relation(fields: [id_admin], references: [id_utilizador], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_ad__489AC854")
+  gpedidos_responsaveis  gpedidos_responsaveis? @relation(fields: [id_responsavel], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_re__498EEC8D")
+
+  @@schema("dbo")
+}
+
+model gpedidos_servicos {
+  id_servico                     Int                              @id(map: "PK__gpedidos__D06FB5A298CA913D") @default(autoincrement())
+  id_categoria                   Int
+  nome                           String                           @unique(map: "unique_nome_servicos") @db.NVarChar(100)
+  ficheiro_obrigatorio           Boolean?                         @default(false, map: "DF__gpedidos___fiche__2A164134")
+  tempoEstimado_horas            Int?
+  automatico                     Boolean?                         @default(false, map: "DF__gpedidos___autom__2B0A656D")
+  gpedidos_nome_ficheiro_servico gpedidos_nome_ficheiro_servico[]
+  gpedidos_pedido_servico        gpedidos_pedido_servico[]
+  gpedidos_categorias            gpedidos_categorias              @relation(fields: [id_categoria], references: [id_categoria], onUpdate: NoAction, map: "FK__gpedidos___id_ca__4A8310C6")
+  gpedidos_servicos_alvos        gpedidos_servicos_alvos[]
+  gpedidos_servicos_responsaveis gpedidos_servicos_responsaveis[]
+
+  @@unique([nome, id_categoria], map: "unique_nome_cat_servicos")
+  @@schema("dbo")
+}
+
+model gpedidos_servicos_alvos {
+  id_servico_alvo   Int                @id(map: "PK__gpedidos__4254F800EF028637") @default(autoincrement())
+  id_servico        Int?
+  id_alvo           Int?
+  gpedidos_alvos    gpedidos_alvos?    @relation(fields: [id_alvo], references: [id_alvo], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_al__4B7734FF")
+  gpedidos_servicos gpedidos_servicos? @relation(fields: [id_servico], references: [id_servico], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_se__4C6B5938")
+
+  @@schema("dbo")
+}
+
+model gpedidos_servicos_responsaveis {
+  id_servico_responsavel Int                    @id(map: "PK__gpedidos__E67F2479ED0C15B0") @default(autoincrement())
+  id_servico             Int?
+  id_responsavel         Int?
+  gpedidos_responsaveis  gpedidos_responsaveis? @relation(fields: [id_responsavel], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__gpedidos___id_re__4D5F7D71")
+  gpedidos_servicos      gpedidos_servicos?     @relation(fields: [id_servico], references: [id_servico], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_se__4E53A1AA")
+
+  @@schema("dbo")
+}
+
+model gpedidos_tarefas {
+  id_tarefa                 Int                         @id(map: "PK__gpedidos__757EF33CD1E25E24") @default(autoincrement())
+  id_pedido                 Int
+  id_estado                 Int                         @default(1, map: "DF__gpedidos___id_es__2BFE89A6")
+  id_funcionario            String                      @db.NVarChar(50)
+  descricao                 String                      @db.NVarChar(500)
+  data_atribuicao           DateTime                    @default(now(), map: "DF__gpedidos___data___2CF2ADDF") @db.DateTime
+  data_inicio               DateTime?                   @db.DateTime
+  data_fim                  DateTime?                   @db.DateTime
+  comentarios               String?                     @db.NVarChar(500)
+  resposta                  String?                     @db.NVarChar(500)
+  tempo_resolucao           Decimal?                    @db.Decimal(18, 2)
+  gpedidos_estados          gpedidos_estados            @relation(fields: [id_estado], references: [id_estado], onUpdate: NoAction, map: "FK__gpedidos___id_es__4F47C5E3")
+  im_utilizador             im_utilizador               @relation(fields: [id_funcionario], references: [id_utilizador], onUpdate: NoAction, map: "FK__gpedidos___id_fu__503BEA1C")
+  gpedidos_pedidos          gpedidos_pedidos            @relation(fields: [id_pedido], references: [id_pedido], onDelete: Cascade, onUpdate: NoAction, map: "FK__gpedidos___id_pe__51300E55")
+  gpedidos_tarefas_ficheiro gpedidos_tarefas_ficheiro[]
+
+  @@schema("dbo")
+}
+
+model gpedidos_tarefas_ficheiro {
+  id               Int               @id(map: "gpedidos_tarefas_ficheiro_pk") @default(autoincrement())
+  id_tarefa        Int?
+  nome_ficheiro    String?           @db.NVarChar(Max)
+  gpedidos_tarefas gpedidos_tarefas? @relation(fields: [id_tarefa], references: [id_tarefa], onDelete: NoAction, onUpdate: NoAction, map: "gpedidos_tarefas_ficheiro_gpedidos_tarefas_id_tarefa_fk")
+
+  @@schema("dbo")
+}
+
+model im_grupo {
+  id_grupo        Int     @id(map: "PK__im_grupo__8B68D6880DF7DEA6") @default(autoincrement())
+  designacao      String? @db.NVarChar(50)
+  id_unidorganica Int?
+  activo          Int?    @db.SmallInt
+
+  @@schema("dbo")
+}
+
+model im_grupo_utilizador {
+  id_utilizador      String    @db.NVarChar(50)
+  id_grupo           Int
+  activo_data_inicio DateTime? @db.DateTime
+  activo_data_fim    DateTime? @db.DateTime
+
+  @@id([id_utilizador, id_grupo], map: "PK__im_grupo__E973BBEB8576546E")
+  @@index([id_grupo], map: "Missing_IXNC_im_grupo_utilizador_id_grupo_82D94")
+  @@schema("dbo")
+}
+
+model im_tipo_doc_id {
+  id_tipo_doc_id Int     @id(map: "PK__im_tipo___E347922D8AC7F011") @default(autoincrement())
+  designacao     String? @db.NVarChar(200)
+  abreviatura    String? @db.NVarChar(200)
+  activo         Int?    @db.SmallInt
+
+  @@schema("dbo")
+}
+
+model im_tipo_vinculo {
+  id_tipo_vinculo Int     @id(map: "PK__im_tipo___2302FD5946892712") @default(autoincrement())
+  designacao      String  @db.NVarChar(50)
+  descricao       String? @db.NVarChar(400)
+  activo          Int     @db.SmallInt
+
+  @@schema("dbo")
+}
+
+model im_utilizador {
+  id_utilizador                    String                             @id(map: "PK__im_utili__71C5368318873BE9") @db.NVarChar(50)
+  id_curso                         String?                            @db.NVarChar(50)
+  num_utilizador                   String?                            @db.NVarChar(50)
+  nome_completo                    String?                            @db.NVarChar(200)
+  id_tipo_doc_id                   Int?
+  nr_doc_identificacao             String?                            @db.NVarChar(50)
+  nr_nif                           String?                            @db.NVarChar(50)
+  email_interno                    String?                            @db.NVarChar(100)
+  email_externo                    String?                            @db.NVarChar(100)
+  data_nascimento                  DateTime?                          @db.DateTime
+  data_criacao                     DateTime?                          @db.DateTime
+  observacoes                      String?                            @db.NVarChar(400)
+  activo                           Int?                               @db.SmallInt
+  id_origem_dados                  Int?
+  salt                             String?                            @default(dbgenerated("newid()"), map: "DF__im_utiliza__salt__2DE6D218") @db.UniqueIdentifier
+  morada1                          String?                            @db.NVarChar(255)
+  morada2                          String?                            @db.NVarChar(255)
+  cod_postal                       String?                            @db.NVarChar(10)
+  localidade                       String?                            @db.NVarChar(255)
+  pais                             String?                            @db.NVarChar(50)
+  telemovel                        String?                            @db.NVarChar(50)
+  telefone                         String?                            @db.NVarChar(50)
+  extensao                         String?                            @db.NVarChar(50)
+  nome_apresentacao                String?                            @db.NVarChar(255)
+  gpedidos_access_log              gpedidos_access_log[]
+  gpedidos_categoria_utilizador    gpedidos_categoria_utilizador[]
+  gpedidos_cc                      gpedidos_cc[]
+  gpedidos_chat                    gpedidos_chat[]
+  gpedidos_departamento_utilizador gpedidos_departamento_utilizador[]
+  gpedidos_departamentos_admin     gpedidos_departamentos_admin[]
+  gpedidos_notificacoes            gpedidos_notificacoes?
+  gpedidos_pedidos                 gpedidos_pedidos[]
+  gpedidos_responsaveis_admin      gpedidos_responsaveis_admin[]
+  gpedidos_tarefas                 gpedidos_tarefas[]
+
+  @@index([num_utilizador, activo, id_utilizador], map: "idx_im_utilizador_marrucho")
+  @@index([activo], map: "IX_im_utilizador_activo")
+  @@index([nr_doc_identificacao], map: "ix_nr_doc_identificacao")
+  @@index([id_curso], map: "Missing_IXNC_im_utilizador_id_curso_72DDD")
+  @@schema("dbo")
+}
+
+model livros {
+  id             Int     @id(map: "PK_exemplo.livros") @default(autoincrement())
+  designacao     String  @db.NVarChar(250)
+  ISBN           String  @db.NVarChar(20)
+  preco_unitario Decimal @db.Decimal(18, 2)
+  qnt_stock      Int
+  editora_id     Int
+  autores        String  @db.NVarChar(250)
+
+  @@schema("exemplo")
+}
+
+model not_excepcao {
+  id_excepcao          Int                   @id(map: "PK__not_exce__B66DB5D91BB033A9")
+  id_tipo_notificacao  Int?
+  email_destinatario   String?               @db.NVarChar(255)
+  not_tipo_notificacao not_tipo_notificacao? @relation(fields: [id_tipo_notificacao], references: [id_tipo_notificacao], onDelete: NoAction, onUpdate: NoAction, map: "FK__not_excep__id_ti__4F7CD00D")
+
+  @@schema("dbo")
+}
+
+model not_notificacao {
+  id_notificacao       Int                   @id(map: "PK__not_noti__D520476910054618") @default(autoincrement())
+  data_criacao         DateTime?             @db.DateTime
+  data_envio           DateTime?             @db.DateTime
+  email_destinatario   String?               @db.NVarChar(4000)
+  assunto              String?               @db.NVarChar(Max)
+  mensagem             String?               @db.NVarChar(Max)
+  id_tipo_notificacao  Int?
+  estado               Int?
+  periodicidade        String?               @db.NVarChar(255)
+  identificador_chave  String?               @db.NVarChar(255)
+  not_tipo_notificacao not_tipo_notificacao? @relation(fields: [id_tipo_notificacao], references: [id_tipo_notificacao], onDelete: NoAction, onUpdate: NoAction, map: "FK__not_notif__id_ti__5070F446")
+
+  @@schema("dbo")
+}
+
+model not_regra {
+  id_regra             Int                   @id(map: "PK__not_regr__46D174CE736E0A77")
+  activa               Boolean
+  tabela_base          String?               @db.NVarChar(255)
+  trg                  String?               @db.NVarChar(255)
+  periodicidade        String?               @db.NVarChar(255)
+  assunto              String?               @db.NVarChar(4000)
+  mensagem             String?               @db.NVarChar(4000)
+  descricao_regra      String?               @db.NVarChar(4000)
+  id_tipo_notificacao  Int?
+  not_tipo_notificacao not_tipo_notificacao? @relation(fields: [id_tipo_notificacao], references: [id_tipo_notificacao], onDelete: NoAction, onUpdate: NoAction, map: "FK__not_regra__id_ti__748F2482")
+
+  @@schema("dbo")
+}
+
+model not_tipo_notificacao {
+  id_tipo_notificacao Int               @id(map: "PK__not_tipo__F92D44CE8C381BB9")
+  descricao           String?           @db.NVarChar(255)
+  not_excepcao        not_excepcao[]
+  not_notificacao     not_notificacao[]
+  not_regra           not_regra[]
+
+  @@schema("dbo")
+}
+
+model org_membros {
+  id_membro                 Int              @id(map: "PK__org_memb__4CD20D5B2C7E77EA") @default(autoincrement())
+  id_unidade                Int?
+  id_funcionario            String?          @db.NVarChar(50)
+  id_tipo_membro            Int?
+  percentagem               Float?
+  data                      DateTime?        @db.Date
+  id_user                   String?          @db.NVarChar(50)
+  activo                    Boolean?
+  hasVotoQualidade          Boolean?
+  id_funcionario_substituto String?          @db.NVarChar(50)
+  data_fim                  DateTime?        @db.Date
+  data_ini_func             DateTime?        @db.DateTime
+  data_fim_func             DateTime?        @db.DateTime
+  descricao_cargo           String?          @db.NVarChar(255)
+  id_cargo                  Int?
+  id_documento              Int?
+  org_tipo_membro           org_tipo_membro? @relation(fields: [id_tipo_membro], references: [id_tipo_membro], onDelete: NoAction, onUpdate: NoAction, map: "FK__org_membr__id_ti__11957784")
+  org_unidade               org_unidade?     @relation(fields: [id_unidade], references: [id_unidade], onDelete: NoAction, onUpdate: NoAction, map: "FK__org_membr__id_un__12899BBD")
+
+  @@schema("dbo")
+}
+
+model org_organica {
+  id_organica Int
+  descricao   String?       @db.NVarChar(255)
+  versao      Int
+  activo      Boolean?
+  data        DateTime?     @db.Date
+  estado      Int?
+  sigla       String?       @db.NVarChar(255)
+  id_user     String?       @db.NVarChar(255)
+  data_fim    DateTime?     @db.Date
+  org_unidade org_unidade[]
+
+  @@id([id_organica, versao], map: "PK__org_orga__CAE2E5F14B012CFC")
+  @@schema("dbo")
+}
+
+model org_tipo_membro {
+  id_tipo_membro Int           @id(map: "PK__org_tipo__7210C2DAD029BB2E")
+  descricao      String?       @db.NVarChar(255)
+  org_membros    org_membros[]
+
+  @@schema("dbo")
+}
+
+model org_tipo_unidade {
+  id_tipo_unidade Int           @id(map: "PK__org_tipo__B275567A3513BDEB") @default(autoincrement())
+  descricao       String?       @db.NVarChar(255)
+  estatutos       Boolean?
+  org_unidade     org_unidade[]
+
+  @@schema("dbo")
+}
+
+model org_unidade {
+  id_unidade            Int               @id(map: "PK__org_unid__0B6FAEC43ACC9741") @default(autoincrement())
+  descricao             String?           @db.NVarChar(255)
+  id_unidade_pai        Int?
+  id_tipo_unidade       Int?
+  id_organica           Int?
+  activo                Boolean?
+  sigla                 String?           @db.NVarChar(255)
+  id_referencia         String?           @db.NVarChar(10)
+  versao                Int?
+  data                  DateTime?         @db.Date
+  id_user               String?           @db.NVarChar(255)
+  isColegial            Boolean?
+  id_tipologia_decisao  Int?
+  percentagem           Decimal?          @db.Decimal(18, 0)
+  data_fim              DateTime?         @db.Date
+  isGlobal              Int?              @default(0, map: "DF__org_unida__isGlo__15DA3E5D")
+  permiteEncaminhamento Int?              @default(1, map: "DF__org_unida__permi__16CE6296")
+  org_membros           org_membros[]
+  org_tipo_unidade      org_tipo_unidade? @relation(fields: [id_tipo_unidade], references: [id_tipo_unidade], onDelete: NoAction, onUpdate: NoAction, map: "FK__org_unida__id_ti__1471E42F")
+  org_organica          org_organica?     @relation(fields: [id_organica, versao], references: [id_organica, versao], onDelete: NoAction, onUpdate: NoAction, map: "FK__org_unidade__15660868")
+
+  @@schema("dbo")
+}
+
+model vendas {
+  id             Int     @id(map: "PK_vendas") @default(autoincrement())
+  livro_id       Int
+  preco_unitario Decimal @db.Decimal(18, 2)
+  qnt            Int
+  preco_total    Decimal @db.Decimal(18, 2)
+  iva            Decimal @db.Decimal(18, 2)
+  id_utilizador  String  @db.NVarChar(50)
+
+  @@schema("exemplo")
+}
