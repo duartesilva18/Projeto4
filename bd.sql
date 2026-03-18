@@ -159,6 +159,47 @@ END
 GO
 
 -- =========================================================
+--  DIFERENÇA VAGAS/MAT ANTES 3.ª FASE (override manual)
+--  Permite editar o valor que antes vinha da fórmula/view
+-- =========================================================
+IF OBJECT_ID('vagas.diff_vagas_mat_antes_3f_override', 'U') IS NULL
+BEGIN
+    CREATE TABLE vagas.diff_vagas_mat_antes_3f_override (
+        id_diff_override INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_curso_oferta  INT NOT NULL FOREIGN KEY REFERENCES vagas.curso_oferta(id_curso_oferta),
+        ano               SMALLINT NOT NULL, -- deve corresponder a `cna.ano_colocacao`
+        diff_vagas_mat_antes_3f INT NOT NULL DEFAULT (0),
+
+        CONSTRAINT uq_diff_vagas_mat_antes_3f_override UNIQUE (id_curso_oferta, ano)
+    );
+
+    CREATE INDEX idx_diff_vagas_mat_antes_3f_override
+        ON vagas.diff_vagas_mat_antes_3f_override (id_curso_oferta, ano);
+END
+GO
+
+-- =========================================================
+--  TRANSF CNA PARA IPVC (override manual)
+--  Permite editar o campo que no Excel vinha como fórmula
+--  (a view usa COALESCE para preferir este override).
+-- =========================================================
+IF OBJECT_ID('vagas.perc_ocupacao_cna_override', 'U') IS NULL
+BEGIN
+    CREATE TABLE vagas.perc_ocupacao_cna_override (
+        id_perc_override INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_curso_oferta  INT NOT NULL FOREIGN KEY REFERENCES vagas.curso_oferta(id_curso_oferta),
+        ano               SMALLINT NOT NULL, -- deve corresponder a `cna.ano_colocacao`
+        perc_ocupacao_cna DECIMAL(10,2) NOT NULL DEFAULT (0),
+
+        CONSTRAINT uq_perc_ocupacao_cna_override UNIQUE (id_curso_oferta, ano)
+    );
+
+    CREATE INDEX idx_perc_ocupacao_cna_override
+        ON vagas.perc_ocupacao_cna_override (id_curso_oferta, ano);
+END
+GO
+
+-- =========================================================
 --  DADOS INICIAIS PARA VIA_ACESSO E FASE
 -- =========================================================
 
@@ -497,7 +538,7 @@ SELECT
     cna.total_colocados_cna,         -- FÓRMULA (soma colocados 1F+2F+3F)
     cna.total_matriculados_cna,      -- FÓRMULA (soma matriculados 1F+2F+3F)
     cna.diferenca_vagas_mat_antes_3f,-- FÓRMULA (vagas1F+2F - matr1F+2F)
-    cna.perc_ocupacao_cna,           -- FÓRMULA (% ocupação CNA)
+    COALESCE(ipvc.perc_ocupacao_cna, cna.perc_ocupacao_cna) AS perc_ocupacao_cna, -- override manual
 
     -- Matrículas por ano de curso (1º, 2º, 3º, 4º) e total por curso
     mat.matriculados_1ano,
@@ -518,4 +559,7 @@ LEFT JOIN vagas.vw_matriculas_por_curso mat
 LEFT JOIN vagas.sobras_pos_3f sob
        ON sob.id_curso_oferta = cna.id_curso_oferta
       AND sob.ano = cna.ano_colocacao;
+LEFT JOIN vagas.perc_ocupacao_cna_override ipvc
+       ON ipvc.id_curso_oferta = cna.id_curso_oferta
+      AND ipvc.ano = cna.ano_colocacao;
 GO

@@ -6,6 +6,7 @@
 	import Breadcrum from "$lib/components/Breadcrum.svelte";
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
+	import toastr from "toastr";
 
 	/** @type {{ data: import('./$types').PageData }} */
 	let { data } = $props();
@@ -642,6 +643,266 @@
 		editingRow = null;
 		editForm = null;
 	}
+
+	// Inline editing (apenas "Regime Nacional" na tabela)
+	let inlineEditRowId = $state('');
+	let inlineEditField = $state('');
+	/** @type {CourseData | null} */
+	let inlineEditRow = $state(null);
+	let inlineEditValue = $state('0');
+	let inlineEditCommitting = $state(false);
+
+	/**
+	 * @param {CourseData} row
+	 * @param {keyof CourseData} field
+	 */
+	function beginInlineEdit(row, field) {
+		// Permite editar inline tanto no "Regime Nacional" quanto no tab "SOBRAS"
+		if (activeTab !== 'regime-nacional' && activeTab !== 'sobras' && activeTab !== 'full') return;
+		inlineEditRow = row;
+		inlineEditRowId = row.id;
+		inlineEditField = field;
+		inlineEditValue = String(row?.[field] ?? 0);
+		// Seleciona automaticamente o valor quando o input aparece (para o utilizador só escrever).
+		setTimeout(() => {
+			const all = Array.from(document.querySelectorAll('input.inline-edit-input'));
+			const visible = /** @type {HTMLInputElement | undefined} */ (all.find((el) => el instanceof HTMLInputElement && el.offsetParent !== null));
+			if (visible) {
+				visible.focus();
+				visible.select();
+			}
+		}, 0);
+	}
+
+	function closeInlineEdit() {
+		inlineEditRow = null;
+		inlineEditRowId = '';
+		inlineEditField = '';
+		inlineEditValue = '0';
+	}
+
+	async function commitInlineEdit() {
+		if (inlineEditCommitting) return;
+		if (!inlineEditRow) return;
+
+		inlineEditCommitting = true;
+		const r = inlineEditRow;
+		const parsed = String(inlineEditValue ?? '')
+			.trim()
+			.replace(',', '.');
+		const newValNum = Number(parsed);
+		const isDecimalField =
+			inlineEditField === 'mediaEntrada1F';
+		const newVal = Number.isFinite(newValNum) ? (isDecimalField ? newValNum : Math.trunc(newValNum)) : 0;
+
+		/** @type {Record<string, number>} */
+		let payload = {};
+
+		try {
+			// Guardar apenas se mudou (evita PATCH desnecessários)
+			const oldVal = (() => {
+				switch (inlineEditField) {
+					case 'vagasEfetivas3F':
+						return Number(r.vagasEfetivas3F ?? r.vagas3F ?? 0);
+					case 'vagas1F':
+						return Number(r.vagas1F ?? 0);
+					case 'candidatos1F':
+						return Number(r.candidatos1F ?? 0);
+					case 'colocados1F':
+						return Number(r.colocados1F ?? 0);
+					case 'vagas2F':
+						return Number(r.vagas2F ?? 0);
+					case 'candidatos2F':
+						return Number(r.candidatos2F ?? 0);
+					case 'colocados2F':
+						return Number(r.colocados2F ?? 0);
+					case 'vagas3F':
+						return Number(r.vagas3F ?? 0);
+					case 'candidatos3F':
+						return Number(r.candidatos3F ?? 0);
+					case 'colocados3F':
+						return Number(r.colocados3F ?? 0);
+					case 'matriculados1F':
+						return Number(r.matriculados1F ?? 0);
+					case 'matriculados2F':
+						return Number(r.matriculados2F ?? 0);
+					case 'matriculados3F':
+						return Number(r.matriculados3F ?? 0);
+					case 'sobrasPos3F':
+						return Number(r.sobrasPos3F ?? 0);
+					case 'diffVagasMatAntes3F':
+						return Number(r.diffVagasMatAntes3F ?? 0);
+					case 'percOcupacaoCna':
+						return Number(r.percOcupacaoCna ?? 0);
+					case 'candidatos1Opcao1F':
+						return Number(r.candidatos1Opcao1F ?? 0);
+					case 'candidatos1Opcao2F':
+						return Number(r.candidatos1Opcao2F ?? 0);
+					case 'candidatos1Opcao3F':
+						return Number(r.candidatos1Opcao3F ?? 0);
+					case 'classificacaoUltimo1F':
+						return Number(r.classificacaoUltimo1F ?? 0);
+					case 'mediaEntrada1F':
+						return Number(r.mediaEntrada1F ?? 0);
+					case 'classificacaoUltimo2F':
+						return Number(r.classificacaoUltimo2F ?? 0);
+					case 'classificacaoUltimo3F':
+						return Number(r.classificacaoUltimo3F ?? 0);
+					default:
+						return NaN;
+				}
+			})();
+
+			if (!Number.isNaN(oldVal)) {
+				const same = isDecimalField ? Math.abs(newVal - oldVal) < 1e-9 : newVal === oldVal;
+				if (same) {
+					closeInlineEdit();
+					return;
+				}
+			}
+
+			switch (inlineEditField) {
+				// Para evitar o backend colocar NULL quando o payload vem "parcial",
+				// enviamos sempre o trio completo (vagas/candidatos/colocados) da fase.
+				case 'vagas1F':
+					payload = { vagas1F: newVal, candidatos1F: r.candidatos1F ?? 0, colocados1F: r.colocados1F ?? 0 };
+					break;
+				case 'candidatos1F':
+					payload = { vagas1F: r.vagas1F ?? 0, candidatos1F: newVal, colocados1F: r.colocados1F ?? 0 };
+					break;
+				case 'colocados1F':
+					payload = { vagas1F: r.vagas1F ?? 0, candidatos1F: r.candidatos1F ?? 0, colocados1F: newVal };
+					break;
+				case 'matriculados1F':
+					// O modal/VIEW tratam "matriculados" como dependente de "colocados".
+					// Por isso, ao editar Matric. 1.ªF, persistimos em "colocados1F".
+					payload = { vagas1F: r.vagas1F ?? 0, candidatos1F: r.candidatos1F ?? 0, colocados1F: newVal };
+					break;
+				case 'candidatos1Opcao1F':
+					payload = {
+						vagas1F: r.vagas1F ?? 0,
+						candidatos1F: r.candidatos1F ?? 0,
+						candidatos1Opcao1F: newVal,
+						colocados1F: r.colocados1F ?? 0
+					};
+					break;
+				case 'vagas2F':
+					payload = { vagas2F: newVal, candidatos2F: r.candidatos2F ?? 0, colocados2F: r.colocados2F ?? 0 };
+					break;
+				case 'candidatos2F':
+					payload = { vagas2F: r.vagas2F ?? 0, candidatos2F: newVal, colocados2F: r.colocados2F ?? 0 };
+					break;
+				case 'colocados2F':
+					payload = { vagas2F: r.vagas2F ?? 0, candidatos2F: r.candidatos2F ?? 0, colocados2F: newVal };
+					break;
+				case 'matriculados2F':
+					// Persistimos em "colocados2F" (matriculados é dependente).
+					payload = { vagas2F: r.vagas2F ?? 0, candidatos2F: r.candidatos2F ?? 0, colocados2F: newVal };
+					break;
+				case 'candidatos1Opcao2F':
+					payload = {
+						vagas2F: r.vagas2F ?? 0,
+						candidatos2F: r.candidatos2F ?? 0,
+						candidatos1Opcao2F: newVal,
+						colocados2F: r.colocados2F ?? 0
+					};
+					break;
+				case 'vagas3F':
+					payload = { vagas3F: newVal, candidatos3F: r.candidatos3F ?? 0, colocados3F: r.colocados3F ?? 0 };
+					break;
+				case 'vagasEfetivas3F':
+					// No teu backend atual, "vagasEfetivas3F" está mapeado para a mesma base de "vagas3F".
+					payload = { vagas3F: newVal, candidatos3F: r.candidatos3F ?? 0, colocados3F: r.colocados3F ?? 0 };
+					break;
+				case 'candidatos3F':
+					payload = { vagas3F: r.vagas3F ?? 0, candidatos3F: newVal, colocados3F: r.colocados3F ?? 0 };
+					break;
+				case 'colocados3F':
+					payload = { vagas3F: r.vagas3F ?? 0, candidatos3F: r.candidatos3F ?? 0, colocados3F: newVal };
+					break;
+				case 'matriculados3F':
+					// Persistimos em "colocados3F" (matriculados é dependente).
+					payload = { vagas3F: r.vagas3F ?? 0, candidatos3F: r.candidatos3F ?? 0, colocados3F: newVal };
+					break;
+				case 'candidatos1Opcao3F':
+					payload = {
+						vagas3F: r.vagas3F ?? 0,
+						candidatos3F: r.candidatos3F ?? 0,
+						candidatos1Opcao3F: newVal,
+						colocados3F: r.colocados3F ?? 0
+					};
+					break;
+				case 'sobrasPos3F':
+					payload = { sobrasPos3F: newVal };
+					break;
+				case 'diffVagasMatAntes3F':
+					payload = { diffVagasMatAntes3F: newVal };
+					break;
+				case 'percOcupacaoCna':
+					payload = { percOcupacaoCna: newVal };
+					break;
+				case 'classificacaoUltimo1F':
+					payload = {
+						vagas1F: r.vagas1F ?? 0,
+						candidatos1F: r.candidatos1F ?? 0,
+						candidatos1Opcao1F: r.candidatos1Opcao1F ?? 0,
+						colocados1F: r.colocados1F ?? 0,
+						classificacaoUltimo1F: newVal,
+						mediaEntrada1F: r.mediaEntrada1F ?? 0
+					};
+					break;
+				case 'mediaEntrada1F':
+					payload = {
+						vagas1F: r.vagas1F ?? 0,
+						candidatos1F: r.candidatos1F ?? 0,
+						candidatos1Opcao1F: r.candidatos1Opcao1F ?? 0,
+						colocados1F: r.colocados1F ?? 0,
+						classificacaoUltimo1F: r.classificacaoUltimo1F ?? 0,
+						mediaEntrada1F: newVal
+					};
+					break;
+				case 'classificacaoUltimo2F':
+					payload = {
+						vagas2F: r.vagas2F ?? 0,
+						candidatos2F: r.candidatos2F ?? 0,
+						candidatos1Opcao2F: r.candidatos1Opcao2F ?? 0,
+						colocados2F: r.colocados2F ?? 0,
+						classificacaoUltimo2F: newVal
+					};
+					break;
+				case 'classificacaoUltimo3F':
+					payload = {
+						vagas3F: r.vagas3F ?? 0,
+						candidatos3F: r.candidatos3F ?? 0,
+						candidatos1Opcao3F: r.candidatos1Opcao3F ?? 0,
+						colocados3F: r.colocados3F ?? 0,
+						classificacaoUltimo3F: newVal
+					};
+					break;
+				default:
+					return;
+			}
+
+			const res = await fetch(`/api/vagas/curso/${r.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				console.error('Falha ao guardar edição inline', await res.text());
+				return;
+			}
+
+			toastr.success('Dados guardados com sucesso!', 'SUCESSO', { timeOut: 5000, progressBar: true });
+			await invalidateAll();
+			closeInlineEdit();
+		} catch (e) {
+			console.error('Erro ao guardar edição inline', e);
+		} finally {
+			inlineEditCommitting = false;
+		}
+	}
 	/** Soma dos 5 concursos (Colocados ou Matriculados) para o formulário de edição */
 	/** @param {Record<string, unknown>} f */
 	function sumConcursosColocados(f) {
@@ -655,6 +916,11 @@
 	async function guardarEditar() {
 		if (!editForm || !editingRow) return;
 
+		/** @param {string} msg */
+		const showSuccess = (msg) => {
+			toastr.success(msg, 'SUCESSO', { timeOut: 5000, progressBar: true });
+		};
+
 		// Apenas persistimos quando estamos no modal do Regime Nacional (CNA).
 		// Os campos derivados (fórmulas) recalculam via VIEW no SQL quando a tabela voltar a ser carregada.
 		if (modalTab === 'regime-nacional') {
@@ -662,13 +928,23 @@
 				const payload = {
 					vagas1F: Number(editForm.vagas1F) || 0,
 					candidatos1F: Number(editForm.candidatos1F) || 0,
+					candidatos1Opcao1F: Number(editForm.candidatos1Opcao1F ?? 0) || 0,
 					colocados1F: Number(editForm.colocados1F) || 0,
 					vagas2F: Number(editForm.vagas2F) || 0,
 					candidatos2F: Number(editForm.candidatos2F) || 0,
+					candidatos1Opcao2F: Number(editForm.candidatos1Opcao2F ?? 0) || 0,
 					colocados2F: Number(editForm.colocados2F) || 0,
 					vagas3F: Number(editForm.vagas3F) || 0,
 					candidatos3F: Number(editForm.candidatos3F) || 0,
+					candidatos1Opcao3F: Number(editForm.candidatos1Opcao3F ?? 0) || 0,
 					colocados3F: Number(editForm.colocados3F) || 0,
+					diffVagasMatAntes3F: Number(editForm.diffVagasMatAntes3F ?? 0) || 0,
+					// Classificação e média (último colocado / média de entrada)
+					classificacaoUltimo1F: Number(editForm.classificacaoUltimo1F ?? 0) || 0,
+					mediaEntrada1F: Number(editForm.mediaEntrada1F ?? 0) || 0,
+					classificacaoUltimo2F: Number(editForm.classificacaoUltimo2F ?? 0) || 0,
+					classificacaoUltimo3F: Number(editForm.classificacaoUltimo3F ?? 0) || 0,
+					percOcupacaoCna: Number(String(editForm.percOcupacaoCna ?? 0).replace(',', '.')) || 0,
 					sobrasPos3F: Number(editForm.sobrasPos3F ?? 0) || 0
 				};
 
@@ -680,6 +956,8 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar CNA', await res.text());
+				} else {
+					showSuccess('Dados guardados com sucesso!');
 				}
 			} catch (e) {
 				console.error('Erro ao guardar CNA', e);
@@ -714,6 +992,8 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar reingresso/mudança', await res.text());
+				} else {
+					showSuccess('Dados guardados com sucesso!');
 				}
 			} catch (e) {
 				console.error('Erro ao guardar reingresso/mudança', e);
@@ -762,6 +1042,8 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar concursos', await res.text());
+				} else {
+					showSuccess('Dados guardados com sucesso!');
 				}
 			} catch (e) {
 				console.error('Erro ao guardar concursos', e);
@@ -793,6 +1075,8 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar regimes esp+internacionais', await res.text());
+				} else {
+					showSuccess('Dados guardados com sucesso!');
 				}
 			} catch (e) {
 				console.error('Erro ao guardar regimes esp+internacionais', e);
@@ -871,6 +1155,12 @@
 		background-color: #e9ecef;
 		color: #495057;
 		font-weight: 600;
+	}
+
+	.table-main .inline-edit-input {
+		padding: 2px 6px;
+		font-size: 12px;
+		text-align: center;
 	}
 	.row-alt-0 {
 		background-color: #ffffff;
@@ -1027,6 +1317,28 @@
 		min-width: 28px;
 		font-weight: 700;
 		color: #0b5ed7;
+	}
+
+	/* Modal: edição Regime Nacional (CNA) — layout por secções */
+	.regime-edit-title {
+		font-weight: 700;
+		color: #0b5ed7;
+		margin-bottom: 12px;
+		font-size: 0.95rem;
+	}
+	.regime-edit-section {
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
+		padding: 12px 14px;
+		background: #ffffff;
+		margin-bottom: 12px;
+	}
+	.regime-edit-section-title {
+		font-weight: 800;
+		color: #0b5ed7;
+		font-size: 0.85rem;
+		margin-bottom: 8px;
+		text-transform: none;
 	}
 
 	/* KPIs — estilo clean */
@@ -1300,6 +1612,10 @@
 							<tr
 								class="{idx % 2 === 0 ? 'row-alt-0' : 'row-alt-1'} {selectedCourse?.id === row.id ? 'row-selected' : ''}"
 								onclick={() => { selectedCourse = row; }}
+								ondblclick={() => {
+									if (inlineEditRowId && inlineEditRowId === row.id) return;
+									abrirEditar(row);
+								}}
 								style="cursor: pointer;"
 							>
 								<td class="sticky-course">
@@ -1311,36 +1627,304 @@
 								<!-- 1.ª fase -->
 								<td>{row.vagas1F}</td>
 								<td>{row.candidatos1F}</td>
-								<td>{row.candidatos1Opcao1F}</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao1F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos1Opcao1F}
+										{/if}
+									</td>
 								<td>{row.colocados1F}</td>
-								<td>{row.classificacaoUltimo1F}</td>
-								<td>{row.mediaEntrada1F}</td>
+								<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo1F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.classificacaoUltimo1F}
+									{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'mediaEntrada1F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'mediaEntrada1F'}
+										<input
+											type="number"
+											min="0"
+											step="0.01"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.mediaEntrada1F}
+									{/if}
+								</td>
 								<!-- 2.ª fase -->
 								<td>{row.vagas2F}</td>
 								<td>{row.candidatos2F}</td>
-								<td>{row.candidatos1Opcao2F}</td>
+								<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao2F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.candidatos1Opcao2F}
+									{/if}
+								</td>
 								<td>{row.colocados2F}</td>
-								<td>{row.classificacaoUltimo2F}</td>
+								<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo2F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.classificacaoUltimo2F}
+									{/if}
+								</td>
 								<!-- 3.ª fase -->
 								<td>{row.vagas3F}</td>
-								<td>{row.vagasEfetivas3F}</td>
+								<td onclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'vagasEfetivas3F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.vagasEfetivas3F}
+									{/if}
+								</td>
 								<td>{row.candidatos3F}</td>
-								<td>{row.candidatos1Opcao3F}</td>
+								<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao3F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.candidatos1Opcao3F}
+									{/if}
+								</td>
 								<td>{row.colocados3F}</td>
-								<td>{row.classificacaoUltimo3F}</td>
+								<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo3F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.classificacaoUltimo3F}
+									{/if}
+								</td>
 								<!-- Totais CNA -->
 								<td class="formula-cell">{row.totalCandidatosCna}</td>
-								<td class="formula-cell">{row.totalColocados}</td>
+								<td class="formula-cell">
+									{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
+								</td>
 								<!-- Matriculados por fase + total -->
-								<td>{row.matriculados1F}</td>
-								<td>{row.matriculados2F}</td>
-								<td>{row.matriculados3F}</td>
-								<td class="formula-cell">{row.totalMatriculados}</td>
+								<td onclick={() => beginInlineEdit(row, 'matriculados1F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados1F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.matriculados1F}
+									{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'matriculados2F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados2F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.matriculados2F}
+									{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'matriculados3F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados3F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.matriculados3F}
+									{/if}
+								</td>
+								<td class="formula-cell">
+									{(row.matriculados1F ?? 0) + (row.matriculados2F ?? 0) + (row.matriculados3F ?? 0)}
+								</td>
 								<!-- Movimentos -->
 								<td>{row.transfCnaOutrasIESup}</td>
 								<td>{row.transfCnaIpvc}</td>
 								<!-- SOBRAS pós 3.ª fase (fora do módulo Regime Nacional) -->
-								<td class="formula-cell">{row.sobrasPos3F}</td>
+								<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.sobrasPos3F}
+									{/if}
+								</td>
 								<!-- Reingresso -->
 								<td>{row.reingressoVagas}</td>
 								<td>{row.reingressoCandidatos}</td>
@@ -1387,7 +1971,9 @@
 								<td>{row.internationalCandidatos}</td>
 								<td>{row.internationalMatriculados}</td>
 								<!-- Totais finais (fora dos módulos) -->
-								<td class="formula-cell">{row.totalColocados}</td>
+								<td class="formula-cell">
+									{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
+								</td>
 								<td class="formula-cell">{row.totalMatriculados}</td>
 								<td>{row.pedidosAnulacao}</td>
 								<td>{row.totalAvailableVacancies}</td>
@@ -1573,6 +2159,10 @@
 							<tr
 								class="{idx % 2 === 0 ? 'row-alt-0' : 'row-alt-1'} {selectedCourse?.id === row.id ? 'row-selected' : ''}"
 								onclick={() => { selectedCourse = row; }}
+								ondblclick={() => {
+									if (inlineEditRowId && inlineEditRowId === row.id) return;
+									abrirEditar(row);
+								}}
 								style="cursor: pointer;"
 							>
 								<td class="sticky-course">
@@ -1583,32 +2173,542 @@
 								</td>
 
 								{#if activeTab === 'regime-nacional'}
-									<td>{row.vagas1F}</td>
-									<td>{row.candidatos1F}</td>
-									<td>{row.candidatos1Opcao1F}</td>
-									<td>{row.colocados1F}</td>
-									<td>{row.classificacaoUltimo1F}</td>
-									<td>{row.mediaEntrada1F}</td>
-									<td>{row.vagas2F}</td>
-									<td>{row.candidatos2F}</td>
-									<td>{row.candidatos1Opcao2F}</td>
-									<td>{row.colocados2F}</td>
-									<td>{row.classificacaoUltimo2F}</td>
-									<td>{row.vagas3F}</td>
-									<td>{row.vagasEfetivas3F}</td>
-									<td>{row.candidatos3F}</td>
-									<td>{row.candidatos1Opcao3F}</td>
-									<td>{row.colocados3F}</td>
-									<td>{row.classificacaoUltimo3F}</td>
+									<td onclick={() => beginInlineEdit(row, 'vagas1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'vagas1F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.vagas1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao1F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos1Opcao1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'colocados1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'colocados1F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.colocados1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo1F'}
+											<input
+												type="number"
+												min="0"
+												step="0.01"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.classificacaoUltimo1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'mediaEntrada1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'mediaEntrada1F'}
+											<input
+												type="number"
+												min="0"
+												step="0.01"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.mediaEntrada1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'vagas2F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'vagas2F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.vagas2F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos2F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos2F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos2F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao2F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos1Opcao2F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'colocados2F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'colocados2F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.colocados2F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo2F'}
+											<input
+												type="number"
+												min="0"
+												step="0.01"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.classificacaoUltimo2F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'vagas3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'vagas3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.vagas3F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'vagasEfetivas3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.vagasEfetivas3F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos3F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.candidatos1Opcao3F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'colocados3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'colocados3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.colocados3F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo3F'}
+											<input
+												type="number"
+												min="0"
+												step="0.01"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.classificacaoUltimo3F}
+										{/if}
+									</td>
 									<td class="formula-cell">{row.totalCandidatosCna}</td>
-									<td class="formula-cell">{row.totalColocados}</td>
-									<td class="formula-cell">{row.matriculados1F}</td>
-									<td class="formula-cell">{row.matriculados2F}</td>
-									<td class="formula-cell">{row.matriculados3F}</td>
-									<td class="formula-cell">{row.totalMatriculados}</td>
-									<td>{row.diffVagasMatAntes3F}</td>
-									<td class="formula-cell">{row.percOcupacaoCna}</td>
-									<td class="formula-cell">{row.sobrasPos3F}</td>
+									<td class="formula-cell">
+										{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'matriculados1F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados1F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.matriculados1F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'matriculados2F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados2F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.matriculados2F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'matriculados3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.matriculados3F}
+										{/if}
+									</td>
+									<td class="formula-cell">
+										{(row.matriculados1F ?? 0) + (row.matriculados2F ?? 0) + (row.matriculados3F ?? 0)}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'diffVagasMatAntes3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'diffVagasMatAntes3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.diffVagasMatAntes3F}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'percOcupacaoCna')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'percOcupacaoCna'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.percOcupacaoCna}
+										{/if}
+									</td>
+									<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.sobrasPos3F}
+										{/if}
+									</td>
 								{:else if activeTab === 'concursos'}
 									<!-- >23 anos -->
 									<td>{row.over23Vagas}</td>
@@ -1654,10 +2754,34 @@
 									<td>{row.internationalCandidatos}</td>
 									<td>{row.internationalMatriculados}</td>
 								{:else if activeTab === 'sobras'}
-									<td class="formula-cell">{row.sobrasPos3F}</td>
+									<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.sobrasPos3F}
+										{/if}
+									</td>
 									<td>{row.pedidosAnulacao}</td>
 								{:else if activeTab === 'totais'}
-									<td class="formula-cell">{row.totalColocados}</td>
+									<td class="formula-cell">
+										{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
+									</td>
 									<td class="formula-cell">{row.totalMatriculados}</td>
 									<td>{row.pedidosAnulacao}</td>
 									<td>{row.totalAvailableVacancies}</td>
@@ -1747,175 +2871,137 @@
 						</div>
 						<div class="modal-body">
 							{#if modalTab === 'regime-nacional'}
-								<p class="small text-muted mb-3">Editar colunas visíveis em <strong>Regime Nacional</strong>.</p>
-								<div class="row">
-									<div class="col-md-3 mb-2">
-										<label for="v1f">1.ª fase - Vagas CNA</label>
-										<input id="v1f" type="number" min="0" class="form-control" bind:value={editForm.vagas1F} />
+								<div class="regime-edit-title">Regime Nacional (CNA)</div>
+
+								<div class="regime-edit-section">
+									<div class="regime-edit-section-title">1.ª fase (1F)</div>
+									<div class="row">
+										<div class="col-md-4 mb-2">
+											<label for="v1f">Vagas CNA</label>
+											<input id="v1f" type="number" min="0" class="form-control" bind:value={editForm.vagas1F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="c1f">Candidatos</label>
+											<input id="c1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="opc1f">Candidatos 1.ª opção (4)</label>
+											<input id="opc1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao1F} />
+										</div>
 									</div>
-									<div class="col-md-3 mb-2">
-										<label for="c1f">1.ª fase - Candidatos</label>
-										<input id="c1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1F} />
-									</div>
-									<div class="col-md-3 mb-2">
-										<label for="opc1f">1.ª fase - Candidatos 1.ª opção (4)</label>
-										<input
-											id="opc1f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.candidatos1Opcao1F ?? 0}
-										/>
+									<div class="row mt-2">
+										<div class="col-md-4 mb-2">
+											<label for="col1f">Colocados (3)</label>
+											<input id="col1f" type="number" min="0" class="form-control" bind:value={editForm.colocados1F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="class1f">Classif. últ. colocado</label>
+											<input id="class1f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo1F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="med1f">Média entrada</label>
+											<input id="med1f" type="number" min="0" step="0.01" class="form-control" bind:value={editForm.mediaEntrada1F} />
+										</div>
 									</div>
 								</div>
 
-								<div class="row mt-2">
-									<div class="col-md-4 mb-2">
-										<label for="col1f">1.ª fase - Colocados (3)</label>
-										<input id="col1f" type="number" min="0" class="form-control" bind:value={editForm.colocados1F} />
+								<div class="regime-edit-section">
+									<div class="regime-edit-section-title">2.ª fase (2F)</div>
+									<div class="row">
+										<div class="col-md-4 mb-2">
+											<label for="v2f">Vagas</label>
+											<input id="v2f" type="number" min="0" class="form-control" bind:value={editForm.vagas2F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="c2f">Candidatos</label>
+											<input id="c2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos2F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="opc2f">Candidatos 1.ª opção (4)</label>
+											<input id="opc2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao2F} />
+										</div>
 									</div>
-									<div class="col-md-4 mb-2">
-										<label for="class1f">1.ª fase - Classif. últ. colocado</label>
-										<input
-											id="class1f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.classificacaoUltimo1F ?? 0}
-										/>
-									</div>
-									<div class="col-md-4 mb-2">
-										<label for="med1f">1.ª fase - Média entrada</label>
-										<input
-											id="med1f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.mediaEntrada1F ?? 0}
-										/>
-									</div>
-								</div>
-
-								<div class="row">
-									<div class="col-md-3 mb-2">
-										<label for="v2f">2.ª fase - Vagas</label>
-										<input id="v2f" type="number" min="0" class="form-control" bind:value={editForm.vagas2F} />
-									</div>
-									<div class="col-md-3 mb-2">
-										<label for="c2f">2.ª fase - Candidatos</label>
-										<input id="c2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos2F} />
-									</div>
-									<div class="col-md-3 mb-2">
-										<label for="opc2f">2.ª fase - Candidatos 1.ª opção (4)</label>
-										<input
-											id="opc2f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.candidatos1Opcao2F ?? 0}
-										/>
-									</div>
-								</div>
-								<div class="row mt-2">
-									<div class="col-md-6 mb-2">
-										<label for="col2f">2.ª fase - Colocados (1)</label>
-										<input id="col2f" type="number" min="0" class="form-control" bind:value={editForm.colocados2F} />
-									</div>
-									<div class="col-md-6 mb-2">
-										<label for="class2f">2.ª fase - Classif. últ. colocado</label>
-										<input
-											id="class2f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.classificacaoUltimo2F ?? 0}
-										/>
+									<div class="row mt-2">
+										<div class="col-md-6 mb-2">
+											<label for="col2f">Colocados (1)</label>
+											<input id="col2f" type="number" min="0" class="form-control" bind:value={editForm.colocados2F} />
+										</div>
+										<div class="col-md-6 mb-2">
+											<label for="class2f">Classif. últ. colocado</label>
+											<input id="class2f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo2F} />
+										</div>
 									</div>
 								</div>
 
-								<div class="row mt-2">
-									<div class="col-md-4 mb-2">
-										<label for="v3f">3.ª fase - Vagas (5)</label>
-										<input id="v3f" type="number" min="0" class="form-control" bind:value={editForm.vagas3F} />
+								<div class="regime-edit-section">
+									<div class="regime-edit-section-title">3.ª fase (3F)</div>
+									<div class="row">
+										<div class="col-md-4 mb-2">
+											<label for="v3f">Vagas (5)</label>
+											<input id="v3f" type="number" min="0" class="form-control" bind:value={editForm.vagas3F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="v3ef">Vagas efetivas (2)</label>
+											<input id="v3ef" type="number" min="0" step="1" class="form-control" bind:value={editForm.vagas3F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="c3f">Candidatos</label>
+											<input id="c3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos3F} />
+										</div>
 									</div>
-									<div class="col-md-4 mb-2">
-										<label for="v3ef">3.ª fase - Vagas efetivas (2)</label>
-										<input
-											id="v3ef"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.vagasEfetivas3F ?? 0}
-										/>
-									</div>
-									<div class="col-md-4 mb-2">
-										<label for="c3f">3.ª fase - Candidatos</label>
-										<input id="c3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos3F} />
+									<div class="row mt-2">
+										<div class="col-md-4 mb-2">
+											<label for="opc3f">Candidatos 1.ª opção (4)</label>
+											<input id="opc3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao3F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="col3f">Colocados (1)</label>
+											<input id="col3f" type="number" min="0" class="form-control" bind:value={editForm.colocados3F} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="class3f">Classif. últ. colocado</label>
+											<input id="class3f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo3F} />
+										</div>
 									</div>
 								</div>
 
-								<div class="row mt-2">
-									<div class="col-md-4 mb-2">
-										<label for="opc3f">3.ª fase - Candidatos 1.ª opção (4)</label>
-										<input
-											id="opc3f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.candidatos1Opcao3F ?? 0}
-										/>
+								<div class="regime-edit-section">
+									<div class="regime-edit-section-title">Totais e movimentos</div>
+									<div class="row">
+										<div class="col-md-4 mb-2">
+											<label for="tot-cna">Total Candidatos CNA</label>
+											<input id="tot-cna" type="number" class="form-control formula-field" disabled value={editForm.totalCandidatosCna ?? 0} />
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="tot-col">Total Colocados</label>
+											<input
+												id="tot-col"
+												type="number"
+												class="form-control formula-field"
+												disabled
+												value={(Number(editForm.colocados1F ?? 0) + Number(editForm.colocados2F ?? 0) + Number(editForm.colocados3F ?? 0))}
+											/>
+										</div>
+										<div class="col-md-4 mb-2">
+											<label for="tot-mat">Total Matriculados</label>
+											<input id="tot-mat" type="number" class="form-control formula-field" disabled value={editForm.totalMatriculados ?? 0} />
+										</div>
 									</div>
-									<div class="col-md-4 mb-2">
-										<label for="col3f">3.ª fase - Colocados (1)</label>
-										<input id="col3f" type="number" min="0" class="form-control" bind:value={editForm.colocados3F} />
+									<div class="row mt-2">
+										<div class="col-md-12 mb-2">
+											<label for="sobras">SOBRAS pós 3.ª fase</label>
+											<input id="sobras" type="number" min="0" class="form-control" bind:value={editForm.sobrasPos3F} />
+										</div>
 									</div>
-									<div class="col-md-4 mb-2">
-										<label for="class3f">3.ª fase - Classif. últ. colocado</label>
-										<input
-											id="class3f"
-											type="number"
-											min="0"
-											class="form-control formula-field"
-											disabled
-											value={editForm.classificacaoUltimo3F ?? 0}
-										/>
-									</div>
-								</div>
-								<div class="row mt-2">
-									<div class="col-md-12 mb-2">
-										<label for="sobras">SOBRAS pós 3.ª fase</label>
-										<input id="sobras" type="number" min="0" class="form-control" bind:value={editForm.sobrasPos3F} />
-									</div>
-								</div>
-								<div class="row mt-2">
-									<div class="col-md-4 mb-2">
-										<label for="tot-cna">Total Candidatos CNA</label>
-										<input id="tot-cna" type="number" class="form-control formula-field" disabled value={editForm.totalCandidatosCna ?? 0} />
-									</div>
-									<div class="col-md-4 mb-2">
-										<label for="tot-col">Total Colocados</label>
-										<input id="tot-col" type="number" class="form-control formula-field" disabled value={editForm.totalColocados ?? 0} />
-									</div>
-									<div class="col-md-4 mb-2">
-										<label for="tot-mat">Total Matriculados</label>
-										<input id="tot-mat" type="number" class="form-control formula-field" disabled value={editForm.totalMatriculados ?? 0} />
-									</div>
-								</div>
-								<div class="row mt-2">
-									<div class="col-md-6 mb-2">
-										<label for="diff-3f">Transf CNA p outras IESup</label>
-										<input id="diff-3f" type="number" min="0" class="form-control" bind:value={editForm.diffVagasMatAntes3F} />
-									</div>
-									<div class="col-md-6 mb-2">
-										<label for="ocup-cna">Transf CNA p o IPVC</label>
-										<input id="ocup-cna" type="number" class="form-control formula-field" disabled value={editForm.percOcupacaoCna ?? 0} />
+									<div class="row mt-2">
+										<div class="col-md-6 mb-2">
+											<label for="diff-3f">Transf CNA p outras IESup</label>
+											<input id="diff-3f" type="number" min="0" class="form-control" bind:value={editForm.diffVagasMatAntes3F} />
+										</div>
+										<div class="col-md-6 mb-2">
+											<label for="ocup-cna">Transf CNA p o IPVC</label>
+											<input id="ocup-cna" type="number" min="0" step="1" class="form-control" bind:value={editForm.percOcupacaoCna} />
+										</div>
 									</div>
 								</div>
 							{:else if modalTab === 'reingresso-mudanca'}

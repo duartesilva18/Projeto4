@@ -19,13 +19,22 @@ export class VagasService {
       vagas1F?: number;
       candidatos1F?: number;
       colocados1F?: number;
+      candidatos1Opcao1F?: number;
+      classificacaoUltimo1F?: number;
+      mediaEntrada1F?: number;
       vagas2F?: number;
       candidatos2F?: number;
       colocados2F?: number;
+      candidatos1Opcao2F?: number;
+      classificacaoUltimo2F?: number;
       vagas3F?: number;
       candidatos3F?: number;
       colocados3F?: number;
+      candidatos1Opcao3F?: number;
+      classificacaoUltimo3F?: number;
       sobrasPos3F?: number;
+      diffVagasMatAntes3F?: number;
+      percOcupacaoCna?: number;
     }
   ) {
     // id gerado no frontend: `${id_curso_oferta}-${ano_colocacao}`
@@ -39,26 +48,64 @@ export class VagasService {
 
     const toInt = (v: unknown) => {
       if (v === undefined || v === null) return undefined;
-      const n = Number(v);
+      const raw = typeof v === 'string' ? v.replace(',', '.') : v;
+      const n = Number(raw);
       return Number.isFinite(n) ? Math.trunc(n) : undefined;
+    };
+    const toNullableNumber = (v: unknown) => {
+      if (v === undefined || v === null) return undefined;
+      const raw = typeof v === 'string' ? v.replace(',', '.') : v;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : undefined;
     };
 
     const v1 = toInt(body.vagas1F);
     const c1 = toInt(body.candidatos1F);
     const l1 = toInt(body.colocados1F);
+    const opc1 = toInt(body.candidatos1Opcao1F);
+    const class1 = toNullableNumber(body.classificacaoUltimo1F);
+    const media1 = toNullableNumber(body.mediaEntrada1F);
 
     const v2 = toInt(body.vagas2F);
     const c2 = toInt(body.candidatos2F);
     const l2 = toInt(body.colocados2F);
+    const opc2 = toInt(body.candidatos1Opcao2F);
+    const class2 = toNullableNumber(body.classificacaoUltimo2F);
 
     const v3 = toInt(body.vagas3F);
     const c3 = toInt(body.candidatos3F);
     const l3 = toInt(body.colocados3F);
+    const opc3 = toInt(body.candidatos1Opcao3F);
+    const class3 = toNullableNumber(body.classificacaoUltimo3F);
 
     const sobrasPos3F = toInt(body.sobrasPos3F);
+    const diffVagasMatAntes3F = toInt(body.diffVagasMatAntes3F);
+    const percOcupacaoCna = toNullableNumber(body.percOcupacaoCna);
 
     // Se nada veio, não fazemos update.
-    if ([v1, c1, l1, v2, c2, l2, v3, c3, l3, sobrasPos3F].every((x) => x === undefined)) {
+    if (
+      [
+        v1,
+        c1,
+        l1,
+        opc1,
+        class1,
+        media1,
+        v2,
+        c2,
+        l2,
+        opc2,
+        class2,
+        v3,
+        c3,
+        l3,
+        opc3,
+        class3,
+        sobrasPos3F,
+        diffVagasMatAntes3F,
+        percOcupacaoCna
+      ].every((x) => x === undefined)
+    ) {
       return { ok: true, updated: 0 };
     }
 
@@ -74,7 +121,7 @@ export class VagasService {
       DECLARE @id_fase_3 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 3);
 
       -- 1.ª fase
-      ${v1 !== undefined || c1 !== undefined || l1 !== undefined ? `
+      ${v1 !== undefined || c1 !== undefined || l1 !== undefined || opc1 !== undefined || class1 !== undefined || media1 !== undefined ? `
       IF EXISTS (
         SELECT 1
         FROM vagas.estatistica_acesso
@@ -87,8 +134,11 @@ export class VagasService {
         UPDATE vagas.estatistica_acesso
         SET vagas = ${v1 ?? 'NULL'},
             candidatos = ${c1 ?? 'NULL'},
+            candidatos_primeira_op = ${opc1 ?? 'NULL'},
+            classificacao_ultimo = ${class1 ?? 'NULL'},
             colocados = ${l1 ?? 'NULL'},
-            matriculados = ${l1 ?? 'NULL'}
+            matriculados = ${l1 ?? 'NULL'},
+            media_entrada = ${media1 ?? 'NULL'}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
           AND id_fase = @id_fase_1
@@ -99,12 +149,12 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, ${v1 ?? 'NULL'}, ${c1 ?? 'NULL'}, NULL, ${l1 ?? 'NULL'}, ${l1 ?? 'NULL'}, NULL, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, ${v1 ?? 'NULL'}, ${c1 ?? 'NULL'}, ${opc1 ?? 'NULL'}, ${l1 ?? 'NULL'}, ${l1 ?? 'NULL'}, ${class1 ?? 'NULL'}, ${media1 ?? 'NULL'});
       END
       ` : ''}
 
       -- 2.ª fase
-      ${v2 !== undefined || c2 !== undefined || l2 !== undefined ? `
+      ${v2 !== undefined || c2 !== undefined || l2 !== undefined || opc2 !== undefined || class2 !== undefined ? `
       IF EXISTS (
         SELECT 1
         FROM vagas.estatistica_acesso
@@ -117,8 +167,10 @@ export class VagasService {
         UPDATE vagas.estatistica_acesso
         SET vagas = ${v2 ?? 'NULL'},
             candidatos = ${c2 ?? 'NULL'},
+            candidatos_primeira_op = ${opc2 ?? 'NULL'},
             colocados = ${l2 ?? 'NULL'},
-            matriculados = ${l2 ?? 'NULL'}
+            matriculados = ${l2 ?? 'NULL'},
+            classificacao_ultimo = ${class2 ?? 'NULL'}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
           AND id_fase = @id_fase_2
@@ -129,12 +181,12 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, ${v2 ?? 'NULL'}, ${c2 ?? 'NULL'}, NULL, ${l2 ?? 'NULL'}, ${l2 ?? 'NULL'}, NULL, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, ${v2 ?? 'NULL'}, ${c2 ?? 'NULL'}, ${opc2 ?? 'NULL'}, ${l2 ?? 'NULL'}, ${l2 ?? 'NULL'}, ${class2 ?? 'NULL'}, NULL);
       END
       ` : ''}
 
       -- 3.ª fase
-      ${v3 !== undefined || c3 !== undefined || l3 !== undefined ? `
+      ${v3 !== undefined || c3 !== undefined || l3 !== undefined || opc3 !== undefined || class3 !== undefined ? `
       IF EXISTS (
         SELECT 1
         FROM vagas.estatistica_acesso
@@ -147,8 +199,10 @@ export class VagasService {
         UPDATE vagas.estatistica_acesso
         SET vagas = ${v3 ?? 'NULL'},
             candidatos = ${c3 ?? 'NULL'},
+            candidatos_primeira_op = ${opc3 ?? 'NULL'},
             colocados = ${l3 ?? 'NULL'},
-            matriculados = ${l3 ?? 'NULL'}
+            matriculados = ${l3 ?? 'NULL'},
+            classificacao_ultimo = ${class3 ?? 'NULL'}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
           AND id_fase = @id_fase_3
@@ -159,7 +213,7 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, ${v3 ?? 'NULL'}, ${c3 ?? 'NULL'}, NULL, ${l3 ?? 'NULL'}, ${l3 ?? 'NULL'}, NULL, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, ${v3 ?? 'NULL'}, ${c3 ?? 'NULL'}, ${opc3 ?? 'NULL'}, ${l3 ?? 'NULL'}, ${l3 ?? 'NULL'}, ${class3 ?? 'NULL'}, NULL);
       END
       ` : ''}
 
@@ -181,6 +235,48 @@ export class VagasService {
       BEGIN
         INSERT INTO vagas.sobras_pos_3f (id_curso_oferta, ano, sobras_pos_3f)
         VALUES (@id_curso_oferta, @ano, ${sobrasPos3F});
+      END
+      ` : ''}
+
+      -- DIFERENÇA VAGAS/MAT (override manual)
+      ${diffVagasMatAntes3F !== undefined ? `
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.diff_vagas_mat_antes_3f_override
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.diff_vagas_mat_antes_3f_override
+        SET diff_vagas_mat_antes_3f = ${diffVagasMatAntes3F}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.diff_vagas_mat_antes_3f_override (id_curso_oferta, ano, diff_vagas_mat_antes_3f)
+        VALUES (@id_curso_oferta, @ano, ${diffVagasMatAntes3F});
+      END
+      ` : ''}
+
+      -- TRANSF CNA p o IPVC (override manual)
+      ${percOcupacaoCna !== undefined ? `
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.perc_ocupacao_cna_override
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.perc_ocupacao_cna_override
+        SET perc_ocupacao_cna = ${percOcupacaoCna}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.perc_ocupacao_cna_override (id_curso_oferta, ano, perc_ocupacao_cna)
+        VALUES (@id_curso_oferta, @ano, ${percOcupacaoCna});
       END
       ` : ''}
     `);
@@ -680,8 +776,8 @@ export class VagasService {
          cna.total_candidatos_cna,
          cna.total_colocados_cna,
          cna.total_matriculados_cna,
-         cna.diferenca_vagas_mat_antes_3f,
-         cna.perc_ocupacao_cna,
+         COALESCE(dfo.diff_vagas_mat_antes_3f, cna.diferenca_vagas_mat_antes_3f) AS diferenca_vagas_mat_antes_3f,
+         COALESCE(ipvc.perc_ocupacao_cna, cna.perc_ocupacao_cna) AS perc_ocupacao_cna,
          cna.matriculados_1ano,
          cna.matriculados_2ano,
          cna.matriculados_3ano,
@@ -742,6 +838,12 @@ export class VagasService {
        LEFT JOIN vagas.sobras_pos_3f sob
               ON sob.id_curso_oferta = cna.id_curso_oferta
              AND sob.ano = cna.ano_colocacao
+      LEFT JOIN vagas.diff_vagas_mat_antes_3f_override dfo
+             ON dfo.id_curso_oferta = cna.id_curso_oferta
+            AND dfo.ano = cna.ano_colocacao
+      LEFT JOIN vagas.perc_ocupacao_cna_override ipvc
+             ON ipvc.id_curso_oferta = cna.id_curso_oferta
+            AND ipvc.ano = cna.ano_colocacao
 
        LEFT JOIN (
          SELECT
