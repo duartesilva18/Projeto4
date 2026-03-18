@@ -21,31 +21,38 @@ export const load = async () => {
             objetos: [
                 {
                     id_objeto: 1,
-                    descricao: "Página base",
+                    descricao: "Regime Nacional (inclui sobras/anulações)",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos"
-                },
-                {
-                    id_objeto: 2,
-                    descricao: "Editoras - listagem",
-                    item_menu: true,
-                    ativo: true,
-                    ficheiro: "/exemplos/editoras/(listagem)"
+                    ficheiro: "/exemplos?tab=regime-nacional"
                 },
                 {
                     id_objeto: 3,
-                    descricao: "Nova editora",
+                    descricao: "Reingresso + Mudança par (Int/Curso)",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos/editoras/nova"
+                    ficheiro: "/exemplos?tab=reingresso-mudanca"
                 },
                 {
-                    id_objeto: 4,
-                    descricao: "Editoras - detalhe",
-                    item_menu: false,
+                    id_objeto: 5,
+                    descricao: "Concursos Especiais",
+                    item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos/editoras/1"
+                    ficheiro: "/exemplos?tab=concursos"
+                },
+                {
+                    id_objeto: 6,
+                    descricao: "Regimes Esp + Internacionais",
+                    item_menu: true,
+                    ativo: true,
+                    ficheiro: "/exemplos?tab=regimes-esp-internacionais"
+                },
+                {
+                    id_objeto: 8,
+                    descricao: "Totais",
+                    item_menu: true,
+                    ativo: true,
+                    ficheiro: "/exemplos?tab=totais"
                 }
             ]
         }

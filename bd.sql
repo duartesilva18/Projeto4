@@ -141,6 +141,24 @@ CREATE INDEX idx_movimento_cna_curso_ano
 GO
 
 -- =========================================================
+--  SOBRAS PÓS 3.ª FASE (inseridas manualmente)
+-- =========================================================
+IF OBJECT_ID('vagas.sobras_pos_3f', 'U') IS NULL
+BEGIN
+    CREATE TABLE vagas.sobras_pos_3f (
+        id_sobras_pos_3f INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_curso_oferta   INT NOT NULL FOREIGN KEY REFERENCES vagas.curso_oferta(id_curso_oferta),
+        ano               SMALLINT NOT NULL, -- deve corresponder a `cna.ano_colocacao` (ea.ano)
+        sobras_pos_3f     INT NOT NULL DEFAULT (0),
+
+        CONSTRAINT uq_sobras_pos_3f UNIQUE (id_curso_oferta, ano)
+    );
+    CREATE INDEX idx_sobras_pos_3f_curso_ano
+        ON vagas.sobras_pos_3f (id_curso_oferta, ano);
+END
+GO
+
+-- =========================================================
 --  DADOS INICIAIS PARA VIA_ACESSO E FASE
 -- =========================================================
 
@@ -180,6 +198,56 @@ WHERE v.codigo = 'CNA'
         FROM vagas.fase fa
         WHERE fa.id_via_acesso = v.id_via_acesso
           AND fa.ordem = f.ordem
+  );
+GO
+
+-- Fases para ESP (Concursos Especiais) – idempotente
+-- Mapeamento de ordem (alinhar com o frontend):
+-- 1 = >23 anos
+-- 2 = CET
+-- 3 = CTeSP
+-- 4 = Outros sup.
+-- 5 = Dupla cert.
+INSERT INTO vagas.fase (id_via_acesso, ordem, nome)
+SELECT v.id_via_acesso,
+       esp.ordem,
+       esp.nome
+FROM vagas.via_acesso v
+CROSS JOIN (VALUES
+    (1, '>23 anos'),
+    (2, 'CET'),
+    (3, 'CTeSP'),
+    (4, 'Outros sup.'),
+    (5, 'Dupla cert.')
+) AS esp(ordem, nome)
+WHERE v.codigo = 'ESP'
+  AND NOT EXISTS (
+        SELECT 1
+        FROM vagas.fase fa
+        WHERE fa.id_via_acesso = v.id_via_acesso
+          AND fa.ordem = esp.ordem
+  );
+GO
+
+-- Fases para REING (Reingresso) – idempotente
+-- 1..4 => 1.º ano .. 4.º ano (ordem usada no frontend)
+INSERT INTO vagas.fase (id_via_acesso, ordem, nome)
+SELECT v.id_via_acesso,
+       reing.ordem,
+       reing.nome
+FROM vagas.via_acesso v
+CROSS JOIN (VALUES
+    (1, '1.º ano'),
+    (2, '2.º ano'),
+    (3, '3.º ano'),
+    (4, '4.º ano')
+) AS reing(ordem, nome)
+WHERE v.codigo = 'REING'
+  AND NOT EXISTS (
+        SELECT 1
+        FROM vagas.fase fa
+        WHERE fa.id_via_acesso = v.id_via_acesso
+          AND fa.ordem = reing.ordem
   );
 GO
 
@@ -436,12 +504,18 @@ SELECT
     mat.matriculados_2ano,
     mat.matriculados_3ano,
     mat.matriculados_4ano,
-    mat.total_matriculados_curso     -- FÓRMULA (soma 1º-4º ano)
+    mat.total_matriculados_curso,    -- FÓRMULA (soma 1º-4º ano)
+
+    -- SOBRAS pós 3.ª fase (manual; não é derivado)
+    COALESCE(sob.sobras_pos_3f, 0) AS sobras_pos_3f
 
 FROM vagas.vw_resumo_cna_por_curso cna
 LEFT JOIN vagas.vw_matriculas_por_curso mat
        ON mat.id_curso_oferta   = cna.id_curso_oferta
       AND mat.ano_referencia    = cna.ano_colocacao
       AND mat.ano_letivo_inicio = cna.ano_letivo_inicio
-      AND mat.ano_letivo_fim    = cna.ano_letivo_fim;
+      AND mat.ano_letivo_fim    = cna.ano_letivo_fim
+LEFT JOIN vagas.sobras_pos_3f sob
+       ON sob.id_curso_oferta = cna.id_curso_oferta
+      AND sob.ano = cna.ano_colocacao;
 GO
