@@ -15,6 +15,11 @@ export class VagasController {
     return this.vagasService.criarAnoLetivoSeguinte();
   }
 
+  @Get('novo-ano')
+  previewAnoLetivoSeguinte() {
+    return this.vagasService.previewAnoLetivoSeguinte();
+  }
+
   @Patch('curso/:id')
   atualizarCnaCurso(
     @Param('id') id: string,

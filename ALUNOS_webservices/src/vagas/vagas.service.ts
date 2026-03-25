@@ -1301,5 +1301,34 @@ export class VagasService {
       ano: created[0] ?? null
     };
   }
+
+  async previewAnoLetivoSeguinte() {
+    // Retorna o ano letivo seguinte sem criar nada.
+    const next = await this.prisma.$queryRawUnsafe<
+      { ano_inicio: number; ano_fim: number }[]
+    >(
+      `
+      DECLARE @max_ano_inicio INT =
+      (
+        SELECT MAX(ano_inicio) FROM vagas.ano_letivo
+      );
+
+      IF @max_ano_inicio IS NULL
+      BEGIN
+        SET @max_ano_inicio = YEAR(GETDATE());
+      END;
+
+      SELECT
+        (@max_ano_inicio + 1) AS ano_inicio,
+        (@max_ano_inicio + 2) AS ano_fim;
+      `
+    );
+
+    const ano = next[0] ?? null;
+    return {
+      ok: true,
+      ano
+    };
+  }
 }
 

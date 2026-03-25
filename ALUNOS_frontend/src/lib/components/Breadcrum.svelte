@@ -39,6 +39,11 @@
 }
 
 
+.breadcrumb-actions {
+    display: flex;
+    align-items: center;
+}
+
 </style>
 
 
@@ -52,14 +57,42 @@
     </li>
     <!-- Breadcrumb Menu-->
     <li class="breadcrumb-menu">
-    <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
-        {#each menu_items as item}
-            {#if item.hasOwnProperty("function")}
-                <a data-link="#" onclick={item.function} style="" class="btn botao-breadcrumb-on ml-1 py-1" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class={item.icon_class}></i> &nbsp; {item.designacao}</a>
-            {:else}
-                <a data-link="#" style="" class="btn botao-breadcrumb-on ml-1 py-1" target={item.target || undefined} href={item.url} role="button" aria-haspopup="true" aria-expanded="false"><i class={item.icon_class}></i> &nbsp; {item.designacao}</a>
-            {/if}
-            {/each}
+        <div class="breadcrumb-actions d-flex align-items-center">
+            <slot name="actions" />
         </div>
+
+        {#if menu_items && menu_items.length > 0}
+            <div class="btn-group ml-2" role="group" aria-label="Button group with nested dropdown">
+                {#each menu_items as item}
+                    {#if item.hasOwnProperty("function")}
+                        <a
+                            data-link="#"
+                            onclick={item.function}
+                            style=""
+                            class="btn botao-breadcrumb-on ml-1 py-1"
+                            href={undefined}
+                            role="button"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                        >
+                            <i class={item.icon_class}></i> &nbsp; {item.designacao}
+                        </a>
+                    {:else}
+                        <a
+                            data-link="#"
+                            style=""
+                            class="btn botao-breadcrumb-on ml-1 py-1"
+                            target={item.target || undefined}
+                            href={item.url}
+                            role="button"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                        >
+                            <i class={item.icon_class}></i> &nbsp; {item.designacao}
+                        </a>
+                    {/if}
+                {/each}
+            </div>
+        {/if}
     </li>
 </ol>

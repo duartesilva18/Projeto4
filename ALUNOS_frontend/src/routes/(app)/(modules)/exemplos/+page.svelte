@@ -681,6 +681,14 @@
 		inlineEditValue = '0';
 	}
 
+	// Quando o utilizador troca de tab, fecho qualquer edição inline pendente.
+	// Isto evita que o `ondblclick` fique bloqueado por `inlineEditRowId` de uma tab anterior.
+	$effect(() => {
+		// Dependência explícita para re-executar só quando a tab mudar.
+		const _tab = activeTab;
+		closeInlineEdit();
+	});
+
 	async function commitInlineEdit() {
 		if (inlineEditCommitting) return;
 		if (!inlineEditRow) return;
@@ -1100,6 +1108,34 @@
 
 	// Estado ao criar novo ano (evita reload e efeito de "tabela grande que desaparece")
 	let criandoNovaTabela = $state(false);
+
+	// Modal de confirmação para criar nova tabela
+	let modalConfirmNovoAno = $state(false);
+	let anoNovoParaCriar = $state('');
+	let modalConfirmNovoAnoLoading = $state(false);
+
+	const fecharConfirmNovoAno = () => {
+		if (criandoNovaTabela) return; // evita fechar enquanto está a correr
+		modalConfirmNovoAno = false;
+		modalConfirmNovoAnoLoading = false;
+	};
+
+	const confirmarCriarNovaTabela = async () => {
+		if (criandoNovaTabela) return;
+		modalConfirmNovoAno = false;
+		criandoNovaTabela = true;
+
+		try {
+			const res = await fetch('/api/vagas/novo-ano', { method: 'POST' });
+			if (res.ok) {
+				await invalidateAll();
+			}
+		} catch (e) {
+			console.error('Erro a criar novo ano letivo', e);
+		} finally {
+			criandoNovaTabela = false;
+		}
+	};
 </script>
 
 <style>
@@ -1199,6 +1235,34 @@
 		font-size: 16px;
 		line-height: 1;
 	}
+
+	/* Confirm dialog e botões com hover (igual ao da pesquisa) */
+	.modal-confirm-novo-ano {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+		width: 100%;
+		height: 100%;
+	}
+
+	.modal-confirm-novo-ano .modal-dialog {
+		margin: 0 auto;
+	}
+
+	.btn-search-hover {
+		transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+		background-color: #20a8d8 !important;
+		border-color: #20a8d8 !important;
+		background-image: none !important;
+		color: #fff !important;
+	}
+
+	.btn-search-hover:hover {
+		background-color: #1a93cc !important;
+		border-color: #1a93cc !important;
+	}
+
 	.school-row {
 		background-color: #e3efff;
 	}
@@ -1347,7 +1411,44 @@
 </style>
 
 <div>
-	<Breadcrum modulo={sidebarOptions.currentModule} objeto={sidebarOptions.currentObject} menu_items={items_breadcrum}/>
+	<Breadcrum modulo={sidebarOptions.currentModule} objeto={sidebarOptions.currentObject} menu_items={items_breadcrum}>
+		<svelte:fragment slot="actions">
+			<button
+				type="button"
+				class="btn botao-breadcrumb-on btn-sm fw-bold btn-search-hover"
+				style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
+				disabled={criandoNovaTabela}
+				onclick={async () => {
+					if (criandoNovaTabela) return;
+					anoNovoParaCriar = '';
+					modalConfirmNovoAnoLoading = true;
+					modalConfirmNovoAno = true;
+
+					try {
+						const res = await fetch('/api/vagas/novo-ano', { method: 'GET' });
+						if (res.ok) {
+							const data = await res.json();
+							const ano = data?.ano;
+							if (ano && typeof ano.ano_inicio === 'number' && typeof ano.ano_fim === 'number') {
+								anoNovoParaCriar = `${ano.ano_inicio}/${ano.ano_fim}`;
+							}
+						}
+					} catch (e) {
+						console.error('Erro ao obter próximo ano letivo', e);
+					} finally {
+						modalConfirmNovoAnoLoading = false;
+					}
+				}}
+			>
+				{#if criandoNovaTabela}
+					<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+					A criar...
+				{:else}
+					<i class="fa fa-plus mr-1"></i> Nova tabela
+				{/if}
+			</button>
+		</svelte:fragment>
+	</Breadcrum>
 
 		<div class="p-2 mt-4">
 			<div class="row filter-controls g-2 align-items-end mb-2">
@@ -1407,60 +1508,32 @@
 			</div>
 
 			<div class="row mt-1 mb-1 align-items-end">
-				<div class="col-12 mb-2">
+				<div class="col-12 col-md-8 mb-2">
 					<p class="text-muted mb-0" style="font-size: 12px;">
 						Clique numa linha para ver o curso. Curso selecionado: <strong>{selectedCourse ? `${selectedCourse.courseName} (${selectedCourse.courseCode})` : 'nenhum'}</strong>
 					</p>
 				</div>
 			</div>
 
-			<!-- Nota de ajuda para a tabela + botões de ações -->
-		<div class="row mb-2 mt-2">
-			<div class="col-md-8 col-sm-12">
-				<small class="text-muted">
-					Clique nos cabeçalhos azuis dos grupos (Concursos especiais, Regimes especiais,
-					Estudantes internacionais, Totais, Distribuição por ano) para expandir ou recolher as colunas de detalhe.
-				</small>
+			<!-- Nota de ajuda para a tabela -->
+			<div class="row mb-2 mt-2">
+				<div class="col-12 col-md-8 col-sm-12">
+					<small class="text-muted">
+						Clique nos cabeçalhos azuis dos grupos (Concursos especiais, Regimes especiais,
+						Estudantes internacionais, Totais, Distribuição por ano) para expandir ou recolher as colunas de detalhe.
+					</small>
+				</div>
+				<div class="col-12 col-md-4 d-flex justify-content-md-end justify-content-sm-end mt-sm-2 mt-md-0">
+					<button
+						type="button"
+						class="btn btn-primary btn-sm btn-search-hover"
+						style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
+						onclick={exportCsv}
+					>
+						<i class="fa fa-download mr-1"></i> Exportar CSV
+					</button>
+				</div>
 			</div>
-			<div class="col-md-4 col-sm-12 d-flex justify-content-md-end justify-content-sm-start mt-sm-2 mt-md-0">
-				<button
-					type="button"
-					class="btn btn-primary btn-sm mr-2"
-					style="min-width: 130px;"
-					disabled={criandoNovaTabela}
-					onclick={async () => {
-						if (criandoNovaTabela) return;
-						criandoNovaTabela = true;
-						try {
-							const res = await fetch('/api/vagas/novo-ano', { method: 'POST' });
-							if (res.ok) {
-								await invalidateAll();
-							}
-						} catch (e) {
-							console.error('Erro a criar novo ano letivo', e);
-						} finally {
-							criandoNovaTabela = false;
-						}
-					}}
-				>
-					{#if criandoNovaTabela}
-						<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
-						A criar...
-					{:else}
-						<i class="fa fa-plus mr-1"></i> Nova tabela
-					{/if}
-				</button>
-
-				<button
-					type="button"
-					class="btn btn-primary btn-sm"
-					style="min-width: 130px;"
-					onclick={exportCsv}
-				>
-					<i class="fa fa-download mr-1"></i> Exportar CSV
-				</button>
-			</div>
-		</div>
 
 		<div class="row mt-1">
 			<div class="col-12 table-responsive">
@@ -3191,6 +3264,53 @@
 						<div class="modal-footer">
 							<button type="button" class="btn btn-secondary" onclick={fecharEditar}>Fechar</button>
 							<button type="button" class="btn btn-primary" onclick={guardarEditar}>Guardar</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		{#if modalConfirmNovoAno}
+			<div class="modal modal-editar-vagas d-block modal-confirm-novo-ano" tabindex="-1" role="dialog" aria-modal="true">
+				<div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px; width: 90%;">
+					<div class="modal-content">
+						<div class="modal-header">
+							<h5 class="modal-title">Confirmar criação de nova tabela</h5>
+							<button type="button" class="close" aria-label="Fechar" onclick={fecharConfirmNovoAno}>
+								<span aria-hidden="true">&times;</span>
+							</button>
+						</div>
+
+						<div class="modal-body">
+							Vai ser criado o ano letivo:
+							<strong>{modalConfirmNovoAnoLoading ? 'Carregando...' : anoNovoParaCriar || '—'}</strong>
+							<p class="small text-muted mb-0" style="margin-top: 10px;">
+								A nova tabela será criada com todos os valores a 0.
+							</p>
+						</div>
+
+						<div class="modal-footer">
+							<button
+								type="button"
+								class="btn btn-secondary"
+								onclick={fecharConfirmNovoAno}
+								disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
+							>
+								Cancelar
+							</button>
+							<button
+								type="button"
+								class="btn btn-primary btn-search-hover"
+								onclick={confirmarCriarNovaTabela}
+								disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
+							>
+								{#if criandoNovaTabela}
+									<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+									Confirmando...
+								{:else}
+									Confirmar
+								{/if}
+							</button>
 						</div>
 					</div>
 				</div>
