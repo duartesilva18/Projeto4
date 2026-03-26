@@ -1069,109 +1069,42 @@ export class VagasService {
       };
     });
 
-    // Se ainda não houver dados reais, devolver algumas linhas mock
-    if (mapped.length === 0) {
-      return [
-        {
-          id: 'demo-1',
-          courseCode: 'L001',
-          courseName: 'Educação Básica',
-          schoolName: 'ESE',
-          anoLetivoInicio: 2024,
-          anoLetivoFim: 2025,
-          over23Vagas: 10,
-          over23Candidatos: 15,
-          over23Colocados: 8,
-          over23Matriculados: 7,
-          cetVagas: 5,
-          cetCandidatos: 6,
-          cetColocados: 4,
-          cetMatriculados: 3,
-          ctespVagas: 4,
-          ctespCandidatos: 5,
-          ctespColocados: 3,
-          ctespMatriculados: 3,
-          otherHigherVagas: 3,
-          otherHigherCandidatos: 4,
-          otherHigherColocados: 2,
-          otherHigherMatriculados: 2,
-          dualCertVagas: 2,
-          dualCertCandidatos: 3,
-          dualCertColocados: 2,
-          dualCertMatriculados: 2,
-          regimesEspVagas: 3,
-          regimesEspCandidatos: 2,
-          regimesEspMatriculados: 1,
-          internationalVagas: 5,
-          internationalCandidatos: 4,
-          internationalMatriculados: 3,
-          totalCandidatosCna: 40,
-          totalColocados: 30,
-          totalMatriculados: 28,
-          pedidosAnulacao: 1,
-          totalAvailableVacancies: 40,
-          diffVacanciesEnrolled: 12,
-          year1: 12,
-          year2: 8,
-          year3: 5,
-          year4: 3,
-          totalMatriculatedPerCourse: 28
-        },
-        {
-          id: 'demo-2',
-          courseCode: 'L002',
-          courseName: 'Engenharia Informática',
-          schoolName: 'ESTG',
-          anoLetivoInicio: 2024,
-          anoLetivoFim: 2025,
-          over23Vagas: 8,
-          over23Candidatos: 12,
-          over23Colocados: 7,
-          over23Matriculados: 6,
-          cetVagas: 4,
-          cetCandidatos: 5,
-          cetColocados: 3,
-          cetMatriculados: 3,
-          ctespVagas: 6,
-          ctespCandidatos: 7,
-          ctespColocados: 5,
-          ctespMatriculados: 5,
-          otherHigherVagas: 3,
-          otherHigherCandidatos: 4,
-          otherHigherColocados: 3,
-          otherHigherMatriculados: 3,
-          dualCertVagas: 2,
-          dualCertCandidatos: 2,
-          dualCertColocados: 2,
-          dualCertMatriculados: 2,
-          regimesEspVagas: 2,
-          regimesEspCandidatos: 2,
-          regimesEspMatriculados: 1,
-          internationalVagas: 4,
-          internationalCandidatos: 5,
-          internationalMatriculados: 4,
-          totalCandidatosCna: 50,
-          totalColocados: 40,
-          totalMatriculados: 35,
-          pedidosAnulacao: 2,
-          totalAvailableVacancies: 50,
-          diffVacanciesEnrolled: 15,
-          year1: 15,
-          year2: 10,
-          year3: 6,
-          year4: 4,
-          totalMatriculatedPerCourse: 35
-        }
-      ];
-    }
-
     return mapped;
   }
 
+  async listarEscolas() {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT id_escola, codigo_escola, nome_escola
+      FROM vagas.escola
+      ORDER BY nome_escola
+    `);
+    return rows.map((r) => ({
+      id: r.id_escola,
+      codigo: r.codigo_escola,
+      nome: r.nome_escola
+    }));
+  }
+
+  async listarCursos() {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT c.id_curso, c.codigo_dges, c.nome_curso, c.regime,
+             e.id_escola, e.nome_escola
+      FROM vagas.curso c
+      INNER JOIN vagas.escola e ON e.id_escola = c.id_escola
+      ORDER BY e.nome_escola, c.nome_curso
+    `);
+    return rows.map((r) => ({
+      id: r.id_curso,
+      codigo: r.codigo_dges,
+      nome: r.nome_curso,
+      regime: r.regime,
+      idEscola: r.id_escola,
+      escola: r.nome_escola
+    }));
+  }
+
   async criarAnoLetivoSeguinte() {
-    // cria o ano letivo seguinte com todos os cursos a 0
     await this.prisma.$executeRawUnsafe(`
-      -- obter último ano letivo existente
       DECLARE @max_ano_inicio INT =
       (
         SELECT MAX(ano_inicio) FROM vagas.ano_letivo
@@ -1179,7 +1112,7 @@ export class VagasService {
 
       IF @max_ano_inicio IS NULL
       BEGIN
-        SET @max_ano_inicio = YEAR(GETDATE());
+        SET @max_ano_inicio = YEAR(GETDATE()) - 2;
       END;
 
       DECLARE @ano_inicio INT = @max_ano_inicio + 1;
@@ -1303,7 +1236,6 @@ export class VagasService {
   }
 
   async previewAnoLetivoSeguinte() {
-    // Retorna o ano letivo seguinte sem criar nada.
     const next = await this.prisma.$queryRawUnsafe<
       { ano_inicio: number; ano_fim: number }[]
     >(
@@ -1315,7 +1247,7 @@ export class VagasService {
 
       IF @max_ano_inicio IS NULL
       BEGIN
-        SET @max_ano_inicio = YEAR(GETDATE());
+        SET @max_ano_inicio = YEAR(GETDATE()) - 2;
       END;
 
       SELECT

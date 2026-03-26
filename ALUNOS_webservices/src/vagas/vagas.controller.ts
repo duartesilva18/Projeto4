@@ -20,6 +20,16 @@ export class VagasController {
     return this.vagasService.previewAnoLetivoSeguinte();
   }
 
+  @Get('escolas')
+  listarEscolas() {
+    return this.vagasService.listarEscolas();
+  }
+
+  @Get('cursos')
+  listarCursos() {
+    return this.vagasService.listarCursos();
+  }
+
   @Get('anos')
   listarAnos() {
     return this.vagasService.listarAnos();

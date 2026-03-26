@@ -97,6 +97,11 @@
 	/** @type {CourseData[]} */
 	let linhas = $derived(Array.isArray(data.linhas) ? data.linhas : []);
 
+	/** @type {{ id: number, codigo: string, nome: string }[]} */
+	let escolasBd = $derived(Array.isArray(/** @type {any} */ (data).escolas) ? /** @type {any} */ (data).escolas : []);
+	/** @type {{ id: number, codigo: string, nome: string, regime: string, idEscola: number, escola: string }[]} */
+	let cursosBd = $derived(Array.isArray(/** @type {any} */ (data).cursos) ? /** @type {any} */ (data).cursos : []);
+
 	// filtros (ano letivo, escola e curso)
 	// valores escolhidos nos selects
 	let filtroAno = $state('all');
@@ -166,38 +171,47 @@
 	$effect(() => {
 		// calcular opções de filtros
 		const anoSet = new Set();
-		const escSet = new Set();
 		linhas.forEach((l) => {
 			if (l.anoLetivoInicio && l.anoLetivoFim) {
 				anoSet.add(`${l.anoLetivoInicio}/${l.anoLetivoFim}`);
 			}
-			if (l.schoolName) escSet.add(l.schoolName);
 		});
-		// ordenar anos e definir o mais recente como default na primeira carga
 		const anosArray = Array.from(anoSet).sort((a, b) => {
 			const aIni = parseInt(a.split('/')[0] || '0', 10);
 			const bIni = parseInt(b.split('/')[0] || '0', 10);
 			return bIni - aIni;
 		});
 		anosDisponiveis = anosArray;
-		// Pré-selecionar o ano "atual" (por exemplo: 2025/2026 => começa em 2025)
 		const currentYear = new Date().getFullYear();
 		const currentAnoLabel = anosArray.find((a) => a.startsWith(`${currentYear}/`)) ?? anosArray[0];
 		if (currentAnoLabel && filtroAnoAplicado === 'all') {
 			filtroAno = currentAnoLabel;
 			filtroAnoAplicado = currentAnoLabel;
 		}
-		escolasDisponiveis = Array.from(escSet);
 
-		// cursos dependem da escola selecionada no filtro visual
-		const cursoSet = new Set();
-		linhas.forEach((l) => {
-			if (!l.courseName) return;
-			if (filtroEscola === 'all' || l.schoolName === filtroEscola) {
-				cursoSet.add(l.courseName);
-			}
-		});
-		cursosDisponiveis = Array.from(cursoSet).sort();
+		if (escolasBd.length > 0) {
+			escolasDisponiveis = escolasBd.map((e) => e.nome).sort();
+		} else {
+			const escSet = new Set();
+			linhas.forEach((l) => { if (l.schoolName) escSet.add(l.schoolName); });
+			escolasDisponiveis = Array.from(escSet).sort();
+		}
+
+		if (cursosBd.length > 0) {
+			const filtered = filtroEscola === 'all'
+				? cursosBd
+				: cursosBd.filter((c) => c.escola === filtroEscola);
+			cursosDisponiveis = filtered.map((c) => c.nome).sort();
+		} else {
+			const cursoSet = new Set();
+			linhas.forEach((l) => {
+				if (!l.courseName) return;
+				if (filtroEscola === 'all' || l.schoolName === filtroEscola) {
+					cursoSet.add(l.courseName);
+				}
+			});
+			cursosDisponiveis = Array.from(cursoSet).sort();
+		}
 
 		// O "Curso" depende da escola selecionada no seletor visual.
 		// Os filtros só afetam as linhas ao clicar em "Aplicar filtros".
@@ -376,6 +390,17 @@
 	function fecharEditar() {
 		editingRow = null;
 		editForm = null;
+	}
+
+	// Scroll to top
+	let showScrollTop = $state(false);
+	$effect(() => {
+		const onScroll = () => { showScrollTop = window.scrollY > 400; };
+		window.addEventListener('scroll', onScroll, { passive: true });
+		return () => window.removeEventListener('scroll', onScroll);
+	});
+	function scrollToTop() {
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	// Inline editing (apenas "Regime Nacional" na tabela)
@@ -1072,10 +1097,12 @@
 		box-sizing: border-box;
 		height: 24px;
 		line-height: 1;
+		appearance: textfield;
 		-moz-appearance: textfield;
 	}
 	.table-main .inline-edit-input::-webkit-outer-spin-button,
 	.table-main .inline-edit-input::-webkit-inner-spin-button {
+		appearance: none;
 		-webkit-appearance: none;
 		margin: 0;
 	}
@@ -1315,6 +1342,30 @@
 	/* KPIs — estilo clean */
 	/* (cards KPI removidos) */
 
+	.scroll-top-btn {
+		position: fixed;
+		bottom: 28px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 1050;
+		width: 42px;
+		height: 42px;
+		border-radius: 50%;
+		border: none;
+		background: rgba(50, 130, 184, 0.85);
+		color: #fff;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+		transition: opacity 0.25s, background 0.2s;
+		opacity: 0.85;
+	}
+	.scroll-top-btn:hover {
+		opacity: 1;
+		background: rgba(50, 130, 184, 1);
+	}
 </style>
 
 <div>
@@ -1607,7 +1658,7 @@
 								<!-- 1.ª fase -->
 								<td>{row.vagas1F}</td>
 								<td>{row.candidatos1F}</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao1F'}
 											<input
 												type="number"
@@ -1631,7 +1682,7 @@
 										{/if}
 									</td>
 								<td>{row.colocados1F}</td>
-								<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo1F'}
 										<input
 											type="number"
@@ -1654,7 +1705,7 @@
 										{row.classificacaoUltimo1F}
 									{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'mediaEntrada1F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'mediaEntrada1F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'mediaEntrada1F'}
 										<input
 											type="number"
@@ -1680,7 +1731,7 @@
 								<!-- 2.ª fase -->
 								<td>{row.vagas2F}</td>
 								<td>{row.candidatos2F}</td>
-								<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao2F'}
 										<input
 											type="number"
@@ -1704,7 +1755,7 @@
 									{/if}
 								</td>
 								<td>{row.colocados2F}</td>
-								<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo2F'}
 										<input
 											type="number"
@@ -1729,7 +1780,7 @@
 								</td>
 								<!-- 3.ª fase -->
 								<td>{row.vagas3F}</td>
-								<td onclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'vagasEfetivas3F'}
 										<input
 											type="number"
@@ -1753,7 +1804,7 @@
 									{/if}
 								</td>
 								<td>{row.candidatos3F}</td>
-								<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao3F'}
 										<input
 											type="number"
@@ -1777,7 +1828,7 @@
 									{/if}
 								</td>
 								<td>{row.colocados3F}</td>
-								<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo3F'}
 										<input
 											type="number"
@@ -1806,7 +1857,7 @@
 									{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
 								</td>
 								<!-- Matriculados por fase + total -->
-								<td onclick={() => beginInlineEdit(row, 'matriculados1F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'matriculados1F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados1F'}
 										<input
 											type="number"
@@ -1829,7 +1880,7 @@
 										{row.matriculados1F}
 									{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'matriculados2F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'matriculados2F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados2F'}
 										<input
 											type="number"
@@ -1852,7 +1903,7 @@
 										{row.matriculados2F}
 									{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'matriculados3F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'matriculados3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados3F'}
 										<input
 											type="number"
@@ -1882,7 +1933,7 @@
 								<td>{row.transfCnaOutrasIESup}</td>
 								<td>{row.transfCnaIpvc}</td>
 								<!-- SOBRAS pós 3.ª fase (fora do módulo Regime Nacional) -->
-								<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
 										<input
 											type="number"
@@ -2153,7 +2204,7 @@
 								</td>
 
 								{#if activeTab === 'regime-nacional'}
-									<td onclick={() => beginInlineEdit(row, 'vagas1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'vagas1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagas1F'}
 											<input
 												type="number"
@@ -2176,7 +2227,7 @@
 											{row.vagas1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1F'}
 											<input
 												type="number"
@@ -2199,7 +2250,7 @@
 											{row.candidatos1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao1F'}
 											<input
 												type="number"
@@ -2222,7 +2273,7 @@
 											{row.candidatos1Opcao1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'colocados1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'colocados1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'colocados1F'}
 											<input
 												type="number"
@@ -2245,7 +2296,7 @@
 											{row.colocados1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo1F'}
 											<input
 												type="number"
@@ -2268,7 +2319,7 @@
 											{row.classificacaoUltimo1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'mediaEntrada1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'mediaEntrada1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'mediaEntrada1F'}
 											<input
 												type="number"
@@ -2291,7 +2342,7 @@
 											{row.mediaEntrada1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'vagas2F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'vagas2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagas2F'}
 											<input
 												type="number"
@@ -2314,7 +2365,7 @@
 											{row.vagas2F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos2F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos2F'}
 											<input
 												type="number"
@@ -2337,7 +2388,7 @@
 											{row.candidatos2F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao2F'}
 											<input
 												type="number"
@@ -2360,7 +2411,7 @@
 											{row.candidatos1Opcao2F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'colocados2F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'colocados2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'colocados2F'}
 											<input
 												type="number"
@@ -2383,7 +2434,7 @@
 											{row.colocados2F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo2F'}
 											<input
 												type="number"
@@ -2406,7 +2457,7 @@
 											{row.classificacaoUltimo2F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'vagas3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'vagas3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagas3F'}
 											<input
 												type="number"
@@ -2429,7 +2480,7 @@
 											{row.vagas3F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagasEfetivas3F'}
 											<input
 												type="number"
@@ -2452,7 +2503,7 @@
 											{row.vagasEfetivas3F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos3F'}
 											<input
 												type="number"
@@ -2475,7 +2526,7 @@
 											{row.candidatos3F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao3F'}
 											<input
 												type="number"
@@ -2498,7 +2549,7 @@
 											{row.candidatos1Opcao3F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'colocados3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'colocados3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'colocados3F'}
 											<input
 												type="number"
@@ -2521,7 +2572,7 @@
 											{row.colocados3F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo3F'}
 											<input
 												type="number"
@@ -2548,7 +2599,7 @@
 									<td class="formula-cell">
 										{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'matriculados1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'matriculados1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados1F'}
 											<input
 												type="number"
@@ -2571,7 +2622,7 @@
 											{row.matriculados1F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'matriculados2F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'matriculados2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados2F'}
 											<input
 												type="number"
@@ -2594,7 +2645,7 @@
 											{row.matriculados2F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'matriculados3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'matriculados3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados3F'}
 											<input
 												type="number"
@@ -2620,7 +2671,7 @@
 									<td class="formula-cell">
 										{(row.matriculados1F ?? 0) + (row.matriculados2F ?? 0) + (row.matriculados3F ?? 0)}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'diffVagasMatAntes3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'diffVagasMatAntes3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'diffVagasMatAntes3F'}
 											<input
 												type="number"
@@ -2643,7 +2694,7 @@
 											{row.diffVagasMatAntes3F}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'percOcupacaoCna')}>
+									<td ondblclick={() => beginInlineEdit(row, 'percOcupacaoCna')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'percOcupacaoCna'}
 											<input
 												type="number"
@@ -2666,7 +2717,7 @@
 											{row.percOcupacaoCna}
 										{/if}
 									</td>
-									<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
 											<input
 												type="number"
@@ -2690,182 +2741,182 @@
 										{/if}
 									</td>
 							{:else if activeTab === 'concursos'}
-							<td onclick={() => beginInlineEdit(row, 'over23Vagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'over23Vagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'over23Vagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.over23Vagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'over23Candidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'over23Candidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'over23Candidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.over23Candidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'over23Colocados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'over23Colocados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'over23Colocados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.over23Colocados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'over23Matriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'over23Matriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'over23Matriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.over23Matriculados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'cetVagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'cetVagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'cetVagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.cetVagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'cetCandidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'cetCandidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'cetCandidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.cetCandidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'cetColocados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'cetColocados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'cetColocados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.cetColocados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'cetMatriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'cetMatriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'cetMatriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.cetMatriculados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'ctespVagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'ctespVagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'ctespVagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.ctespVagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'ctespCandidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'ctespCandidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'ctespCandidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.ctespCandidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'ctespColocados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'ctespColocados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'ctespColocados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.ctespColocados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'ctespMatriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'ctespMatriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'ctespMatriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.ctespMatriculados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'otherHigherVagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'otherHigherVagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherVagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.otherHigherVagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'otherHigherCandidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'otherHigherCandidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherCandidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.otherHigherCandidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'otherHigherColocados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'otherHigherColocados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherColocados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.otherHigherColocados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'otherHigherMatriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'otherHigherMatriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherMatriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.otherHigherMatriculados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'dualCertVagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'dualCertVagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertVagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.dualCertVagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'dualCertCandidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'dualCertCandidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertCandidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.dualCertCandidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'dualCertColocados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'dualCertColocados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertColocados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.dualCertColocados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'dualCertMatriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'dualCertMatriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertMatriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.dualCertMatriculados}{/if}
 							</td>
 							{:else if activeTab === 'reingresso-mudanca'}
-								<td onclick={() => beginInlineEdit(row, 'reingressoVagas')}>
+								<td ondblclick={() => beginInlineEdit(row, 'reingressoVagas')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoVagas'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.reingressoVagas}{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'reingressoCandidatos')}>
+								<td ondblclick={() => beginInlineEdit(row, 'reingressoCandidatos')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoCandidatos'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.reingressoCandidatos}{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'reingressoAno1')}>
+								<td ondblclick={() => beginInlineEdit(row, 'reingressoAno1')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno1'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.reingressoAno1}{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'reingressoAno2')}>
+								<td ondblclick={() => beginInlineEdit(row, 'reingressoAno2')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno2'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.reingressoAno2}{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'reingressoAno3')}>
+								<td ondblclick={() => beginInlineEdit(row, 'reingressoAno3')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno3'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.reingressoAno3}{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'reingressoAno4')}>
+								<td ondblclick={() => beginInlineEdit(row, 'reingressoAno4')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno4'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.reingressoAno4}{/if}
 								</td>
 								<td class="formula-cell">{row.reingressoTotal1Ano}</td>
-								<td onclick={() => beginInlineEdit(row, 'mudancaVagas')}>
+								<td ondblclick={() => beginInlineEdit(row, 'mudancaVagas')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'mudancaVagas'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.mudancaVagas}{/if}
 								</td>
-								<td onclick={() => beginInlineEdit(row, 'mudancaCandidatos')}>
+								<td ondblclick={() => beginInlineEdit(row, 'mudancaCandidatos')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'mudancaCandidatos'}
 										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 									{:else}{row.mudancaCandidatos}{/if}
 								</td>
 								<td class="formula-cell">{row.mudancaColocadosMatriculados}</td>
 							{:else if activeTab === 'regimes-esp-internacionais'}
-							<td onclick={() => beginInlineEdit(row, 'regimesEspVagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'regimesEspVagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'regimesEspVagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.regimesEspVagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'regimesEspCandidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'regimesEspCandidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'regimesEspCandidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.regimesEspCandidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'regimesEspMatriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'regimesEspMatriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'regimesEspMatriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.regimesEspMatriculados}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'internationalVagas')}>
+							<td ondblclick={() => beginInlineEdit(row, 'internationalVagas')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'internationalVagas'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.internationalVagas}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'internationalCandidatos')}>
+							<td ondblclick={() => beginInlineEdit(row, 'internationalCandidatos')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'internationalCandidatos'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.internationalCandidatos}{/if}
 							</td>
-							<td onclick={() => beginInlineEdit(row, 'internationalMatriculados')}>
+							<td ondblclick={() => beginInlineEdit(row, 'internationalMatriculados')}>
 								{#if inlineEditRowId === row.id && inlineEditField === 'internationalMatriculados'}
 									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
 								{:else}{row.internationalMatriculados}{/if}
 							</td>
 								{:else if activeTab === 'sobras'}
-									<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
 											<input
 												type="number"
@@ -3466,3 +3517,11 @@
 		{/if}
 	</div>
 </div>
+
+{#if showScrollTop}
+	<button class="scroll-top-btn" onclick={scrollToTop} aria-label="Voltar ao topo">
+		<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+			<polyline points="18 15 12 9 6 15"></polyline>
+		</svg>
+	</button>
+{/if}

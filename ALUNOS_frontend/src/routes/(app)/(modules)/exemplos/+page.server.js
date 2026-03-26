@@ -5,22 +5,24 @@ import { setupTranslations } from "./translations";
 export async function load() {
     setupTranslations();
 
-    // Ir buscar sempre um array (nunca null) à API de vagas
-    let linhas = [];
-    try {
-        const res = await fetch(PUBLIC_API_URL + "vagas/tabela");
-        if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                linhas = data;
+    const fetchJson = async (path) => {
+        try {
+            const res = await fetch(PUBLIC_API_URL + path);
+            if (res.ok) {
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
             }
+        } catch (e) {
+            console.error(`Erro a carregar ${path}`, e);
         }
-    } catch (e) {
-        // Se der erro na API, mantemos linhas = []
-        console.error("Erro a carregar vagas/tabela", e);
-    }
-
-    return {
-        linhas
+        return [];
     };
+
+    const [linhas, escolas, cursos] = await Promise.all([
+        fetchJson("vagas/tabela"),
+        fetchJson("vagas/escolas"),
+        fetchJson("vagas/cursos")
+    ]);
+
+    return { linhas, escolas, cursos };
 }
