@@ -53,6 +53,13 @@ export const load = async () => {
                     item_menu: true,
                     ativo: true,
                     ficheiro: "/exemplos?tab=totais"
+                },
+                {
+                    id_objeto: 99,
+                    descricao: "Gestão de Tabelas",
+                    item_menu: true,
+                    ativo: true,
+                    ficheiro: "/gestao-tabelas"
                 }
             ]
         }

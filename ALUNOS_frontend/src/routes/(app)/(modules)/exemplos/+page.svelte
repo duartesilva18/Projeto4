@@ -7,6 +7,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import toastr from "toastr";
+	import { exportToXlsx } from "$lib/exportXlsx.js";
 
 	/** @type {{ data: import('./$types').PageData }} */
 	let { data } = $props();
@@ -315,289 +316,20 @@
 		return (prev.schoolName || '') !== (current.schoolName || '');
 	};
 
-	// exportar tabela atual (linhasFiltradas) para CSV com estrutura semelhante ao Excel
 	const exportCsv = () => {
 		if (typeof window === 'undefined') return;
 
-		const linhasParaExportar = linhasFiltradas.length ? linhasFiltradas : linhas;
+		const rows = linhasFiltradas.length ? linhasFiltradas : linhas;
+		const anoLabel = rows[0]
+			? `${rows[0].anoLetivoInicio ?? ''}/${rows[0].anoLetivoFim ?? ''}`
+			: '';
 
-		// função para escapar valores em CSV
-		/**
-		 * @param {unknown} value
-		 */
-		const escapeCsv = (value) => {
-			const s = String(value ?? '');
-			const escaped = s.replace(/"/g, '""');
-			return `"${escaped}"`;
-		};
-
-		/** @type {string[]} */
-		let headers = [];
-		/** @type {(row: CourseData) => (string | number)[]} */
-		let mapper = (row) => [row.schoolName ?? '', row.courseCode ?? '', row.courseName ?? '', ''];
-
-		/**
-		 * Colunas base exportadas em todas as "páginas"
-		 * @param {CourseData} row
-		 */
-		const baseCols = (row) => {
-			const anoLetivo =
-				row.anoLetivoInicio && row.anoLetivoFim
-					? `${row.anoLetivoInicio}/${row.anoLetivoFim}`
-					: '';
-			return [
-				row.schoolName ?? '',
-				row.courseCode ?? '',
-				row.courseName ?? '',
-				anoLetivo
-			];
-		};
-
-		switch (activeTab) {
-			case 'regime-nacional':
-				headers = [
-					'Escola',
-					'Codigo curso',
-					'Nome curso',
-					'Ano letivo',
-					'1.ª fase - Vagas CNA',
-					'1.ª fase - Candidatos',
-					'1.ª fase - Candidatos 1.ª opção (4)',
-					'1.ª fase - Colocados (3)',
-					'1.ª fase - Classif. últ. colocado',
-					'1.ª fase - Média entrada',
-					'2.ª fase - Vagas (1)',
-					'2.ª fase - Candidatos',
-					'2.ª fase - Candidatos 1.ª opção (4)',
-					'2.ª fase - Colocados (1)',
-					'2.ª fase - Classif. últ. colocado',
-					'3.ª fase - Vagas (5)',
-					'3.ª fase - Vagas efetivas (2)',
-					'3.ª fase - Candidatos',
-					'3.ª fase - Candidatos 1.ª opção (4)',
-					'3.ª fase - Colocados (1)',
-					'3.ª fase - Classif. últ. colocado',
-					'Total Candidatos CNA',
-					'Total Colocados',
-					'Matric. 1.ªF',
-					'Matric. 2.ªF',
-					'Matric. 3.ªF',
-					'Total Matriculados',
-					'Transf CNA p outras IESup',
-					'Transf CNA p o IPVC',
-					'SOBRAS pós 3.ª fase',
-					// (anulações removidas)
-				];
-				mapper = (row) => [
-					...baseCols(row),
-					row.vagas1F ?? 0,
-					row.candidatos1F ?? 0,
-					row.candidatos1Opcao1F ?? 0,
-					row.colocados1F ?? 0,
-					row.classificacaoUltimo1F ?? 0,
-					row.mediaEntrada1F ?? 0,
-					row.vagas2F ?? 0,
-					row.candidatos2F ?? 0,
-					row.candidatos1Opcao2F ?? 0,
-					row.colocados2F ?? 0,
-					row.classificacaoUltimo2F ?? 0,
-					row.vagas3F ?? 0,
-					row.vagasEfetivas3F ?? 0,
-					row.candidatos3F ?? 0,
-					row.candidatos1Opcao3F ?? 0,
-					row.colocados3F ?? 0,
-					row.classificacaoUltimo3F ?? 0,
-					row.totalCandidatosCna ?? 0,
-					row.totalColocados ?? 0,
-					row.matriculados1F ?? 0,
-					row.matriculados2F ?? 0,
-					row.matriculados3F ?? 0,
-					row.totalMatriculados ?? 0,
-					row.diffVagasMatAntes3F ?? 0,
-					row.percOcupacaoCna ?? 0,
-					row.sobrasPos3F ?? 0,
-					// (anulações removidas)
-				];
-				break;
-			case 'concursos':
-				headers = [
-					'Escola',
-					'Codigo curso',
-					'Nome curso',
-					'Ano letivo',
-					'>23 anos - Vagas',
-					'>23 anos - Candidatos',
-					'>23 anos - Colocados',
-					'>23 anos - Matriculados',
-					'CET - Vagas',
-					'CET - Candidatos',
-					'CET - Colocados',
-					'CET - Matriculados',
-					'CTeSP - Vagas',
-					'CTeSP - Candidatos',
-					'CTeSP - Colocados',
-					'CTeSP - Matriculados',
-					'Outros sup. - Vagas',
-					'Outros sup. - Candidatos',
-					'Outros sup. - Colocados',
-					'Outros sup. - Matriculados',
-					'Dupla cert. - Vagas',
-					'Dupla cert. - Candidatos',
-					'Dupla cert. - Colocados',
-					'Dupla cert. - Matriculados'
-				];
-				mapper = (row) => [
-					...baseCols(row),
-					row.over23Vagas ?? 0,
-					row.over23Candidatos ?? 0,
-					row.over23Colocados ?? 0,
-					row.over23Matriculados ?? 0,
-					row.cetVagas ?? 0,
-					row.cetCandidatos ?? 0,
-					row.cetColocados ?? 0,
-					row.cetMatriculados ?? 0,
-					row.ctespVagas ?? 0,
-					row.ctespCandidatos ?? 0,
-					row.ctespColocados ?? 0,
-					row.ctespMatriculados ?? 0,
-					row.otherHigherVagas ?? 0,
-					row.otherHigherCandidatos ?? 0,
-					row.otherHigherColocados ?? 0,
-					row.otherHigherMatriculados ?? 0,
-					row.dualCertVagas ?? 0,
-					row.dualCertCandidatos ?? 0,
-					row.dualCertColocados ?? 0,
-					row.dualCertMatriculados ?? 0
-				];
-				break;
-			case 'reingresso-mudanca':
-				headers = [
-					'Escola',
-					'Codigo curso',
-					'Nome curso',
-					'Ano letivo',
-					'Vagas',
-					'Candidatos',
-					'Colocados / Matriculados (1.º ano)',
-					'Colocados / Matriculados (2.º ano)',
-					'Colocados / Matriculados (3.º ano)',
-					'Colocados / Matriculados (4.º ano)',
-					'TOTAL (só 1º ano)',
-					'Vagas',
-					'Candidatos',
-					'Colocados / Matriculados'
-				];
-				mapper = (row) => [
-					...baseCols(row),
-					row.reingressoVagas ?? 0,
-					row.reingressoCandidatos ?? 0,
-					row.reingressoAno1 ?? 0,
-					row.reingressoAno2 ?? 0,
-					row.reingressoAno3 ?? 0,
-					row.reingressoAno4 ?? 0,
-					row.reingressoTotal1Ano ?? 0,
-					row.mudancaVagas ?? 0,
-					row.mudancaCandidatos ?? 0,
-					row.mudancaColocadosMatriculados ?? 0
-				];
-				break;
-			case 'regimes-esp-internacionais':
-				headers = [
-					'Escola',
-					'Codigo curso',
-					'Nome curso',
-					'Ano letivo',
-					'Regimes Esp - Vagas',
-					'Regimes Esp - Candidatos',
-					'Regimes Esp - Matriculados',
-					'Internacionais - Vagas',
-					'Internacionais - Candidatos',
-					'Internacionais - Matriculados'
-				];
-				mapper = (row) => [
-					...baseCols(row),
-					row.regimesEspVagas ?? 0,
-					row.regimesEspCandidatos ?? 0,
-					row.regimesEspMatriculados ?? 0,
-					row.internationalVagas ?? 0,
-					row.internationalCandidatos ?? 0,
-					row.internationalMatriculados ?? 0
-				];
-				break;
-			case 'sobras':
-				headers = [
-					'Escola',
-					'Codigo curso',
-					'Nome curso',
-					'Ano letivo',
-					'SOBRAS pós 3.ª fase',
-					'Pedidos de Anulação'
-				];
-				mapper = (row) => [
-					...baseCols(row),
-					row.sobrasPos3F ?? 0,
-					row.pedidosAnulacao ?? 0
-				];
-				break;
-			case 'totais':
-				headers = [
-					'Escola',
-					'Codigo curso',
-					'Nome curso',
-					'Ano letivo',
-					'Total colocados',
-					'Total matriculados',
-					'Pedidos de Anulação de matrícula',
-					'TOTAL VAGAS disponiveis',
-					'DIFERENÇA vagas/mat antes 3F',
-					'Matriculados 1.º ano',
-					'Matriculados 2.º ano',
-					'Matriculados 3.º ano',
-					'Matriculados 4.º ano',
-					'Total matriculados por curso'
-				];
-				mapper = (row) => [
-					...baseCols(row),
-					row.totalColocados ?? 0,
-					row.totalMatriculados ?? 0,
-					row.pedidosAnulacao ?? 0,
-					row.totalAvailableVacancies ?? 0,
-					row.diffVagasMatAntes3F ?? 0,
-					row.year1 ?? 0,
-					row.year2 ?? 0,
-					row.year3 ?? 0,
-					row.year4 ?? 0,
-					row.totalMatriculatedPerCourse ?? 0
-				];
-				break;
-			default:
-				// fallback para exportar pelo regime nacional
-				headers = ['Escola'];
-				mapper = (row) => [row.schoolName ?? ''];
-		}
-
-		const rows = linhasParaExportar.map((row) => mapper(row));
-
-		const separator = ',';
-		const csvContent =
-			[headers.map(escapeCsv).join(separator)]
-				.concat(rows.map((r) => r.map(escapeCsv).join(separator)))
-				.join('\r\n');
-
-		// adicionar BOM UTF-8 para o Excel reconhecer corretamente acentos/ç
-		const BOM = '\uFEFF';
-		const blob = new Blob([BOM + csvContent], {
-			type: 'text/csv;charset=utf-8;'
-		});
+		const blob = exportToXlsx(rows, anoLabel);
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
-		const anoLabel =
-			filtroAnoAplicado !== 'all'
-				? filtroAnoAplicado.replace('/', '-')
-				: 'todos';
-		const tabLabel = activeTab || 'regime-nacional';
+		const anoFile = filtroAnoAplicado !== 'all' ? filtroAnoAplicado.replace('/', '-') : 'todos';
 		a.href = url;
-		a.download = `alunos_vagas_${anoLabel}_${tabLabel}.csv`;
+		a.download = `Alunos_Proposta_Vagas_${anoFile}.xlsx`;
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
@@ -612,14 +344,16 @@
 	let editingRow = $state(null);
 	/** @type {Partial<CourseData> | null} */
 	let editForm = $state(null);
-	/** @type {'regime-nacional' | 'reingresso-mudanca' | 'regimes-esp-internacionais' | 'concursos' | 'totais'} */
+	/** @type {'regime-nacional' | 'reingresso-mudanca' | 'regimes-esp-internacionais' | 'concursos' | 'totais' | 'all'} */
 	let modalTab = $state('regime-nacional');
+	/** @type {'all' | '1f' | '2f' | '3f' | 'totais'} */
+	let modalSection = $state('all');
 
 	/** @param {CourseData} row */
 	function abrirEditar(row) {
 		editingRow = row;
 		editForm = { ...row };
-		// Mostrar no modal apenas os campos relevantes ao "tab" atualmente visível.
+		modalSection = 'all';
 		switch (activeTab) {
 			case 'reingresso-mudanca':
 				modalTab = 'reingresso-mudanca';
@@ -657,8 +391,8 @@
 	 * @param {keyof CourseData} field
 	 */
 	function beginInlineEdit(row, field) {
-		// Permite editar inline tanto no "Regime Nacional" quanto no tab "SOBRAS"
-		if (activeTab !== 'regime-nacional' && activeTab !== 'sobras' && activeTab !== 'full') return;
+		if (activeTab !== 'regime-nacional' && activeTab !== 'sobras' && activeTab !== 'full' && activeTab !== 'reingresso-mudanca' && activeTab !== 'concursos' && activeTab !== 'regimes-esp-internacionais') return;
+		if (activeTab === 'reingresso-mudanca' && (field === 'reingressoTotal1Ano' || field === 'mudancaColocadosMatriculados')) return;
 		inlineEditRow = row;
 		inlineEditRowId = row.id;
 		inlineEditField = field;
@@ -754,11 +488,53 @@
 						return Number(r.mediaEntrada1F ?? 0);
 					case 'classificacaoUltimo2F':
 						return Number(r.classificacaoUltimo2F ?? 0);
-					case 'classificacaoUltimo3F':
-						return Number(r.classificacaoUltimo3F ?? 0);
-					default:
-						return NaN;
-				}
+				case 'classificacaoUltimo3F':
+					return Number(r.classificacaoUltimo3F ?? 0);
+				case 'reingressoVagas':
+					return Number(r.reingressoVagas ?? 0);
+				case 'reingressoCandidatos':
+					return Number(r.reingressoCandidatos ?? 0);
+				case 'reingressoAno1':
+					return Number(r.reingressoAno1 ?? 0);
+				case 'reingressoAno2':
+					return Number(r.reingressoAno2 ?? 0);
+				case 'reingressoAno3':
+					return Number(r.reingressoAno3 ?? 0);
+				case 'reingressoAno4':
+					return Number(r.reingressoAno4 ?? 0);
+				case 'mudancaVagas':
+					return Number(r.mudancaVagas ?? 0);
+			case 'mudancaCandidatos':
+				return Number(r.mudancaCandidatos ?? 0);
+			case 'over23Vagas': return Number(r.over23Vagas ?? 0);
+			case 'over23Candidatos': return Number(r.over23Candidatos ?? 0);
+			case 'over23Colocados': return Number(r.over23Colocados ?? 0);
+			case 'over23Matriculados': return Number(r.over23Matriculados ?? 0);
+			case 'cetVagas': return Number(r.cetVagas ?? 0);
+			case 'cetCandidatos': return Number(r.cetCandidatos ?? 0);
+			case 'cetColocados': return Number(r.cetColocados ?? 0);
+			case 'cetMatriculados': return Number(r.cetMatriculados ?? 0);
+			case 'ctespVagas': return Number(r.ctespVagas ?? 0);
+			case 'ctespCandidatos': return Number(r.ctespCandidatos ?? 0);
+			case 'ctespColocados': return Number(r.ctespColocados ?? 0);
+			case 'ctespMatriculados': return Number(r.ctespMatriculados ?? 0);
+			case 'otherHigherVagas': return Number(r.otherHigherVagas ?? 0);
+			case 'otherHigherCandidatos': return Number(r.otherHigherCandidatos ?? 0);
+			case 'otherHigherColocados': return Number(r.otherHigherColocados ?? 0);
+			case 'otherHigherMatriculados': return Number(r.otherHigherMatriculados ?? 0);
+			case 'dualCertVagas': return Number(r.dualCertVagas ?? 0);
+			case 'dualCertCandidatos': return Number(r.dualCertCandidatos ?? 0);
+			case 'dualCertColocados': return Number(r.dualCertColocados ?? 0);
+			case 'dualCertMatriculados': return Number(r.dualCertMatriculados ?? 0);
+			case 'regimesEspVagas': return Number(r.regimesEspVagas ?? 0);
+			case 'regimesEspCandidatos': return Number(r.regimesEspCandidatos ?? 0);
+			case 'regimesEspMatriculados': return Number(r.regimesEspMatriculados ?? 0);
+			case 'internationalVagas': return Number(r.internationalVagas ?? 0);
+			case 'internationalCandidatos': return Number(r.internationalCandidatos ?? 0);
+			case 'internationalMatriculados': return Number(r.internationalMatriculados ?? 0);
+			default:
+				return NaN;
+			}
 			})();
 
 			if (!Number.isNaN(oldVal)) {
@@ -878,24 +654,117 @@
 						classificacaoUltimo2F: newVal
 					};
 					break;
-				case 'classificacaoUltimo3F':
-					payload = {
-						vagas3F: r.vagas3F ?? 0,
-						candidatos3F: r.candidatos3F ?? 0,
-						candidatos1Opcao3F: r.candidatos1Opcao3F ?? 0,
-						colocados3F: r.colocados3F ?? 0,
-						classificacaoUltimo3F: newVal
-					};
-					break;
-				default:
-					return;
-			}
+			case 'classificacaoUltimo3F':
+				payload = {
+					vagas3F: r.vagas3F ?? 0,
+					candidatos3F: r.candidatos3F ?? 0,
+					candidatos1Opcao3F: r.candidatos1Opcao3F ?? 0,
+					colocados3F: r.colocados3F ?? 0,
+					classificacaoUltimo3F: newVal
+				};
+				break;
+			case 'reingressoVagas':
+			case 'reingressoCandidatos':
+			case 'reingressoAno1':
+			case 'reingressoAno2':
+			case 'reingressoAno3':
+			case 'reingressoAno4':
+			case 'mudancaVagas':
+			case 'mudancaCandidatos':
+				payload = {
+					reingressoVagas: inlineEditField === 'reingressoVagas' ? newVal : (r.reingressoVagas ?? 0),
+					reingressoCandidatos: inlineEditField === 'reingressoCandidatos' ? newVal : (r.reingressoCandidatos ?? 0),
+					reingressoAno1: inlineEditField === 'reingressoAno1' ? newVal : (r.reingressoAno1 ?? 0),
+					reingressoAno2: inlineEditField === 'reingressoAno2' ? newVal : (r.reingressoAno2 ?? 0),
+					reingressoAno3: inlineEditField === 'reingressoAno3' ? newVal : (r.reingressoAno3 ?? 0),
+					reingressoAno4: inlineEditField === 'reingressoAno4' ? newVal : (r.reingressoAno4 ?? 0),
+					mudancaVagas: inlineEditField === 'mudancaVagas' ? newVal : (r.mudancaVagas ?? 0),
+					mudancaCandidatos: inlineEditField === 'mudancaCandidatos' ? newVal : (r.mudancaCandidatos ?? 0),
+					mudancaColocadosMatriculados: r.mudancaColocadosMatriculados ?? 0
+				};
+				break;
+			case 'over23Vagas':
+			case 'over23Candidatos':
+			case 'over23Colocados':
+			case 'over23Matriculados':
+			case 'cetVagas':
+			case 'cetCandidatos':
+			case 'cetColocados':
+			case 'cetMatriculados':
+			case 'ctespVagas':
+			case 'ctespCandidatos':
+			case 'ctespColocados':
+			case 'ctespMatriculados':
+			case 'otherHigherVagas':
+			case 'otherHigherCandidatos':
+			case 'otherHigherColocados':
+			case 'otherHigherMatriculados':
+			case 'dualCertVagas':
+			case 'dualCertCandidatos':
+			case 'dualCertColocados':
+			case 'dualCertMatriculados':
+				payload = {
+					over23Vagas: inlineEditField === 'over23Vagas' ? newVal : (r.over23Vagas ?? 0),
+					over23Candidatos: inlineEditField === 'over23Candidatos' ? newVal : (r.over23Candidatos ?? 0),
+					over23Colocados: inlineEditField === 'over23Colocados' ? newVal : (r.over23Colocados ?? 0),
+					over23Matriculados: inlineEditField === 'over23Matriculados' ? newVal : (r.over23Matriculados ?? 0),
+					cetVagas: inlineEditField === 'cetVagas' ? newVal : (r.cetVagas ?? 0),
+					cetCandidatos: inlineEditField === 'cetCandidatos' ? newVal : (r.cetCandidatos ?? 0),
+					cetColocados: inlineEditField === 'cetColocados' ? newVal : (r.cetColocados ?? 0),
+					cetMatriculados: inlineEditField === 'cetMatriculados' ? newVal : (r.cetMatriculados ?? 0),
+					ctespVagas: inlineEditField === 'ctespVagas' ? newVal : (r.ctespVagas ?? 0),
+					ctespCandidatos: inlineEditField === 'ctespCandidatos' ? newVal : (r.ctespCandidatos ?? 0),
+					ctespColocados: inlineEditField === 'ctespColocados' ? newVal : (r.ctespColocados ?? 0),
+					ctespMatriculados: inlineEditField === 'ctespMatriculados' ? newVal : (r.ctespMatriculados ?? 0),
+					otherHigherVagas: inlineEditField === 'otherHigherVagas' ? newVal : (r.otherHigherVagas ?? 0),
+					otherHigherCandidatos: inlineEditField === 'otherHigherCandidatos' ? newVal : (r.otherHigherCandidatos ?? 0),
+					otherHigherColocados: inlineEditField === 'otherHigherColocados' ? newVal : (r.otherHigherColocados ?? 0),
+					otherHigherMatriculados: inlineEditField === 'otherHigherMatriculados' ? newVal : (r.otherHigherMatriculados ?? 0),
+					dualCertVagas: inlineEditField === 'dualCertVagas' ? newVal : (r.dualCertVagas ?? 0),
+					dualCertCandidatos: inlineEditField === 'dualCertCandidatos' ? newVal : (r.dualCertCandidatos ?? 0),
+					dualCertColocados: inlineEditField === 'dualCertColocados' ? newVal : (r.dualCertColocados ?? 0),
+					dualCertMatriculados: inlineEditField === 'dualCertMatriculados' ? newVal : (r.dualCertMatriculados ?? 0)
+				};
+				break;
+			case 'regimesEspVagas':
+			case 'regimesEspCandidatos':
+			case 'regimesEspMatriculados':
+			case 'internationalVagas':
+			case 'internationalCandidatos':
+			case 'internationalMatriculados':
+				payload = {
+					regimesEspVagas: inlineEditField === 'regimesEspVagas' ? newVal : (r.regimesEspVagas ?? 0),
+					regimesEspCandidatos: inlineEditField === 'regimesEspCandidatos' ? newVal : (r.regimesEspCandidatos ?? 0),
+					regimesEspMatriculados: inlineEditField === 'regimesEspMatriculados' ? newVal : (r.regimesEspMatriculados ?? 0),
+					internationalVagas: inlineEditField === 'internationalVagas' ? newVal : (r.internationalVagas ?? 0),
+					internationalCandidatos: inlineEditField === 'internationalCandidatos' ? newVal : (r.internationalCandidatos ?? 0),
+					internationalMatriculados: inlineEditField === 'internationalMatriculados' ? newVal : (r.internationalMatriculados ?? 0)
+				};
+				break;
+			default:
+				return;
+		}
 
-			const res = await fetch(`/api/vagas/curso/${r.id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
+		const reingressoFields = ['reingressoVagas', 'reingressoCandidatos', 'reingressoAno1', 'reingressoAno2', 'reingressoAno3', 'reingressoAno4', 'mudancaVagas', 'mudancaCandidatos'];
+		const concursosFields = ['over23Vagas', 'over23Candidatos', 'over23Colocados', 'over23Matriculados', 'cetVagas', 'cetCandidatos', 'cetColocados', 'cetMatriculados', 'ctespVagas', 'ctespCandidatos', 'ctespColocados', 'ctespMatriculados', 'otherHigherVagas', 'otherHigherCandidatos', 'otherHigherColocados', 'otherHigherMatriculados', 'dualCertVagas', 'dualCertCandidatos', 'dualCertColocados', 'dualCertMatriculados'];
+		const regimesFields = ['regimesEspVagas', 'regimesEspCandidatos', 'regimesEspMatriculados', 'internationalVagas', 'internationalCandidatos', 'internationalMatriculados'];
+
+		let endpoint;
+		if (reingressoFields.includes(inlineEditField)) {
+			endpoint = `/api/vagas/reingresso-mudanca/${r.id}`;
+		} else if (concursosFields.includes(inlineEditField)) {
+			endpoint = `/api/vagas/concursos/${r.id}`;
+		} else if (regimesFields.includes(inlineEditField)) {
+			endpoint = `/api/vagas/regimes-esp-internacionais/${r.id}`;
+		} else {
+			endpoint = `/api/vagas/curso/${r.id}`;
+		}
+
+		const res = await fetch(endpoint, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
 
 			if (!res.ok) {
 				console.error('Falha ao guardar edição inline', await res.text());
@@ -1194,9 +1063,21 @@
 	}
 
 	.table-main .inline-edit-input {
-		padding: 2px 6px;
+		padding: 1px 2px;
 		font-size: 12px;
 		text-align: center;
+		width: 100%;
+		min-width: 0;
+		max-width: 100%;
+		box-sizing: border-box;
+		height: 24px;
+		line-height: 1;
+		-moz-appearance: textfield;
+	}
+	.table-main .inline-edit-input::-webkit-outer-spin-button,
+	.table-main .inline-edit-input::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
 	}
 	.row-alt-0 {
 		background-color: #ffffff;
@@ -1390,6 +1271,32 @@
 		margin-bottom: 12px;
 		font-size: 0.95rem;
 	}
+	.modal-section-nav {
+		border-bottom: 1px solid #dee2e6;
+		padding-bottom: 0;
+		margin-bottom: 16px !important;
+	}
+	.modal-section-nav .nav-link {
+		font-size: 0.82rem;
+		padding: 5px 10px;
+		border-radius: 4px 4px 0 0;
+		color: #495057;
+		cursor: pointer;
+		border: 1px solid transparent;
+		border-bottom: none;
+		background: none;
+	}
+	.modal-section-nav .nav-link:hover {
+		background: #f0f4ff;
+	}
+	.modal-section-nav .nav-link.active {
+		background: #fff;
+		color: #0b5ed7;
+		font-weight: 600;
+		border-color: #dee2e6;
+		border-bottom: 2px solid #fff;
+		margin-bottom: -1px;
+	}
 	.regime-edit-section {
 		border: 1px solid #e5e7eb;
 		border-radius: 12px;
@@ -1530,7 +1437,7 @@
 						style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
 						onclick={exportCsv}
 					>
-						<i class="fa fa-download mr-1"></i> Exportar CSV
+						<i class="fa fa-download mr-1"></i> Exportar Excel
 					</button>
 				</div>
 			</div>
@@ -2782,50 +2689,181 @@
 											{row.sobrasPos3F}
 										{/if}
 									</td>
-								{:else if activeTab === 'concursos'}
-									<!-- >23 anos -->
-									<td>{row.over23Vagas}</td>
-									<td>{row.over23Candidatos}</td>
-									<td>{row.over23Colocados}</td>
-									<td>{row.over23Matriculados}</td>
-									<!-- CET -->
-									<td>{row.cetVagas}</td>
-									<td>{row.cetCandidatos}</td>
-									<td>{row.cetColocados}</td>
-									<td>{row.cetMatriculados}</td>
-									<!-- CTeSP -->
-									<td>{row.ctespVagas}</td>
-									<td>{row.ctespCandidatos}</td>
-									<td>{row.ctespColocados}</td>
-									<td>{row.ctespMatriculados}</td>
-									<!-- Outros sup. -->
-									<td>{row.otherHigherVagas}</td>
-									<td>{row.otherHigherCandidatos}</td>
-									<td>{row.otherHigherColocados}</td>
-									<td>{row.otherHigherMatriculados}</td>
-									<!-- Dupla cert. -->
-									<td>{row.dualCertVagas}</td>
-									<td>{row.dualCertCandidatos}</td>
-									<td>{row.dualCertColocados}</td>
-									<td>{row.dualCertMatriculados}</td>
-								{:else if activeTab === 'reingresso-mudanca'}
-									<td>{row.reingressoVagas}</td>
-									<td>{row.reingressoCandidatos}</td>
-									<td>{row.reingressoAno1}</td>
-									<td>{row.reingressoAno2}</td>
-									<td>{row.reingressoAno3}</td>
-									<td>{row.reingressoAno4}</td>
-									<td class="formula-cell">{row.reingressoTotal1Ano}</td>
-									<td>{row.mudancaVagas}</td>
-									<td>{row.mudancaCandidatos}</td>
-									<td class="formula-cell">{row.mudancaColocadosMatriculados}</td>
-								{:else if activeTab === 'regimes-esp-internacionais'}
-									<td>{row.regimesEspVagas}</td>
-									<td>{row.regimesEspCandidatos}</td>
-									<td>{row.regimesEspMatriculados}</td>
-									<td>{row.internationalVagas}</td>
-									<td>{row.internationalCandidatos}</td>
-									<td>{row.internationalMatriculados}</td>
+							{:else if activeTab === 'concursos'}
+							<td onclick={() => beginInlineEdit(row, 'over23Vagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'over23Vagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.over23Vagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'over23Candidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'over23Candidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.over23Candidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'over23Colocados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'over23Colocados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.over23Colocados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'over23Matriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'over23Matriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.over23Matriculados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'cetVagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'cetVagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.cetVagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'cetCandidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'cetCandidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.cetCandidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'cetColocados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'cetColocados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.cetColocados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'cetMatriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'cetMatriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.cetMatriculados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'ctespVagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'ctespVagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.ctespVagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'ctespCandidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'ctespCandidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.ctespCandidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'ctespColocados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'ctespColocados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.ctespColocados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'ctespMatriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'ctespMatriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.ctespMatriculados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'otherHigherVagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherVagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.otherHigherVagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'otherHigherCandidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherCandidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.otherHigherCandidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'otherHigherColocados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherColocados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.otherHigherColocados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'otherHigherMatriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'otherHigherMatriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.otherHigherMatriculados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'dualCertVagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertVagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.dualCertVagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'dualCertCandidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertCandidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.dualCertCandidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'dualCertColocados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertColocados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.dualCertColocados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'dualCertMatriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'dualCertMatriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.dualCertMatriculados}{/if}
+							</td>
+							{:else if activeTab === 'reingresso-mudanca'}
+								<td onclick={() => beginInlineEdit(row, 'reingressoVagas')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoVagas'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.reingressoVagas}{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'reingressoCandidatos')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoCandidatos'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.reingressoCandidatos}{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'reingressoAno1')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno1'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.reingressoAno1}{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'reingressoAno2')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno2'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.reingressoAno2}{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'reingressoAno3')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno3'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.reingressoAno3}{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'reingressoAno4')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'reingressoAno4'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.reingressoAno4}{/if}
+								</td>
+								<td class="formula-cell">{row.reingressoTotal1Ano}</td>
+								<td onclick={() => beginInlineEdit(row, 'mudancaVagas')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'mudancaVagas'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.mudancaVagas}{/if}
+								</td>
+								<td onclick={() => beginInlineEdit(row, 'mudancaCandidatos')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'mudancaCandidatos'}
+										<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+									{:else}{row.mudancaCandidatos}{/if}
+								</td>
+								<td class="formula-cell">{row.mudancaColocadosMatriculados}</td>
+							{:else if activeTab === 'regimes-esp-internacionais'}
+							<td onclick={() => beginInlineEdit(row, 'regimesEspVagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'regimesEspVagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.regimesEspVagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'regimesEspCandidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'regimesEspCandidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.regimesEspCandidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'regimesEspMatriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'regimesEspMatriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.regimesEspMatriculados}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'internationalVagas')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'internationalVagas'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.internationalVagas}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'internationalCandidatos')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'internationalCandidatos'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.internationalCandidatos}{/if}
+							</td>
+							<td onclick={() => beginInlineEdit(row, 'internationalMatriculados')}>
+								{#if inlineEditRowId === row.id && inlineEditField === 'internationalMatriculados'}
+									<input type="number" min="0" step="1" class="form-control form-control-sm inline-edit-input" value={inlineEditValue} oninput={(e) => (inlineEditValue = e.currentTarget.value)} onclick={(e) => e.stopPropagation()} onblur={commitInlineEdit} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitInlineEdit(); } }} />
+								{:else}{row.internationalMatriculados}{/if}
+							</td>
 								{:else if activeTab === 'sobras'}
 									<td onclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
@@ -2943,175 +2981,210 @@
 							</button>
 						</div>
 						<div class="modal-body">
-							{#if modalTab === 'regime-nacional'}
-								<div class="regime-edit-title">Regime Nacional (CNA)</div>
+						{#if modalTab === 'regime-nacional'}
+							<div class="regime-edit-title">Regime Nacional (CNA)</div>
 
-								<div class="regime-edit-section">
-									<div class="regime-edit-section-title">1.ª fase (1F)</div>
-									<div class="row">
-										<div class="col-md-4 mb-2">
-											<label for="v1f">Vagas CNA</label>
-											<input id="v1f" type="number" min="0" class="form-control" bind:value={editForm.vagas1F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="c1f">Candidatos</label>
-											<input id="c1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="opc1f">Candidatos 1.ª opção (4)</label>
-											<input id="opc1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao1F} />
-										</div>
-									</div>
-									<div class="row mt-2">
-										<div class="col-md-4 mb-2">
-											<label for="col1f">Colocados (3)</label>
-											<input id="col1f" type="number" min="0" class="form-control" bind:value={editForm.colocados1F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="class1f">Classif. últ. colocado</label>
-											<input id="class1f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo1F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="med1f">Média entrada</label>
-											<input id="med1f" type="number" min="0" step="0.01" class="form-control" bind:value={editForm.mediaEntrada1F} />
-										</div>
-									</div>
-								</div>
+							<ul class="nav nav-pills nav-fill mb-3 modal-section-nav">
+								<li class="nav-item">
+									<button type="button" class="nav-link {modalSection === 'all' ? 'active' : ''}" onclick={() => (modalSection = 'all')}>Tudo</button>
+								</li>
+								<li class="nav-item">
+									<button type="button" class="nav-link {modalSection === '1f' ? 'active' : ''}" onclick={() => (modalSection = '1f')}>1.ª fase</button>
+								</li>
+								<li class="nav-item">
+									<button type="button" class="nav-link {modalSection === '2f' ? 'active' : ''}" onclick={() => (modalSection = '2f')}>2.ª fase</button>
+								</li>
+								<li class="nav-item">
+									<button type="button" class="nav-link {modalSection === '3f' ? 'active' : ''}" onclick={() => (modalSection = '3f')}>3.ª fase</button>
+								</li>
+								<li class="nav-item">
+									<button type="button" class="nav-link {modalSection === 'totais' ? 'active' : ''}" onclick={() => (modalSection = 'totais')}>Totais</button>
+								</li>
+							</ul>
 
-								<div class="regime-edit-section">
-									<div class="regime-edit-section-title">2.ª fase (2F)</div>
-									<div class="row">
-										<div class="col-md-4 mb-2">
-											<label for="v2f">Vagas</label>
-											<input id="v2f" type="number" min="0" class="form-control" bind:value={editForm.vagas2F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="c2f">Candidatos</label>
-											<input id="c2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos2F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="opc2f">Candidatos 1.ª opção (4)</label>
-											<input id="opc2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao2F} />
-										</div>
-									</div>
-									<div class="row mt-2">
-										<div class="col-md-6 mb-2">
-											<label for="col2f">Colocados (1)</label>
-											<input id="col2f" type="number" min="0" class="form-control" bind:value={editForm.colocados2F} />
-										</div>
-										<div class="col-md-6 mb-2">
-											<label for="class2f">Classif. últ. colocado</label>
-											<input id="class2f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo2F} />
-										</div>
-									</div>
-								</div>
-
-								<div class="regime-edit-section">
-									<div class="regime-edit-section-title">3.ª fase (3F)</div>
-									<div class="row">
-										<div class="col-md-4 mb-2">
-											<label for="v3f">Vagas (5)</label>
-											<input id="v3f" type="number" min="0" class="form-control" bind:value={editForm.vagas3F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="v3ef">Vagas efetivas (2)</label>
-											<input id="v3ef" type="number" min="0" step="1" class="form-control" bind:value={editForm.vagas3F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="c3f">Candidatos</label>
-											<input id="c3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos3F} />
-										</div>
-									</div>
-									<div class="row mt-2">
-										<div class="col-md-4 mb-2">
-											<label for="opc3f">Candidatos 1.ª opção (4)</label>
-											<input id="opc3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao3F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="col3f">Colocados (1)</label>
-											<input id="col3f" type="number" min="0" class="form-control" bind:value={editForm.colocados3F} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="class3f">Classif. últ. colocado</label>
-											<input id="class3f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo3F} />
-										</div>
-									</div>
-								</div>
-
-								<div class="regime-edit-section">
-									<div class="regime-edit-section-title">Totais e movimentos</div>
-									<div class="row">
-										<div class="col-md-4 mb-2">
-											<label for="tot-cna">Total Candidatos CNA</label>
-											<input id="tot-cna" type="number" class="form-control formula-field" disabled value={editForm.totalCandidatosCna ?? 0} />
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="tot-col">Total Colocados</label>
-											<input
-												id="tot-col"
-												type="number"
-												class="form-control formula-field"
-												disabled
-												value={(Number(editForm.colocados1F ?? 0) + Number(editForm.colocados2F ?? 0) + Number(editForm.colocados3F ?? 0))}
-											/>
-										</div>
-										<div class="col-md-4 mb-2">
-											<label for="tot-mat">Total Matriculados</label>
-											<input id="tot-mat" type="number" class="form-control formula-field" disabled value={editForm.totalMatriculados ?? 0} />
-										</div>
-									</div>
-									<div class="row mt-2">
-										<div class="col-md-12 mb-2">
-											<label for="sobras">SOBRAS pós 3.ª fase</label>
-											<input id="sobras" type="number" min="0" class="form-control" bind:value={editForm.sobrasPos3F} />
-										</div>
-									</div>
-									<div class="row mt-2">
-										<div class="col-md-6 mb-2">
-											<label for="diff-3f">Transf CNA p outras IESup</label>
-											<input id="diff-3f" type="number" min="0" class="form-control" bind:value={editForm.diffVagasMatAntes3F} />
-										</div>
-										<div class="col-md-6 mb-2">
-											<label for="ocup-cna">Transf CNA p o IPVC</label>
-											<input id="ocup-cna" type="number" min="0" step="1" class="form-control" bind:value={editForm.percOcupacaoCna} />
-										</div>
-									</div>
-								</div>
-							{:else if modalTab === 'reingresso-mudanca'}
-								<p class="small text-muted mb-3">Editar colunas visíveis em <strong>Reingresso + Mudança</strong>.</p>
+							{#if modalSection === 'all' || modalSection === '1f'}
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">1.ª fase (1F)</div>
 								<div class="row">
-									<div class="col-md-3 mb-2">
-										<label for="rein-vagas">Vagas (Reingresso)</label>
-										<input id="rein-vagas" type="number" min="0" class="form-control" bind:value={editForm.reingressoVagas} />
+									<div class="col-md-4 mb-2">
+										<label for="v1f">Vagas CNA</label>
+										<input id="v1f" type="number" min="0" class="form-control" bind:value={editForm.vagas1F} />
 									</div>
-									<div class="col-md-3 mb-2">
-										<label for="rein-cand">Candidatos (Reingresso)</label>
-										<input id="rein-cand" type="number" min="0" class="form-control" bind:value={editForm.reingressoCandidatos} />
+									<div class="col-md-4 mb-2">
+										<label for="c1f">Candidatos</label>
+										<input id="c1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1F} />
 									</div>
-									<div class="col-md-3 mb-2">
-										<label for="rein-y1">Colocados / Matriculados (1.º ano)</label>
-										<input id="rein-y1" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno1} />
-									</div>
-									<div class="col-md-3 mb-2">
-										<label for="rein-y2">Colocados / Matriculados (2.º ano)</label>
-										<input id="rein-y2" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno2} />
-									</div>
-								</div>
-								<div class="row">
-									<div class="col-md-3 mb-2">
-										<label for="rein-y3">Colocados / Matriculados (3.º ano)</label>
-										<input id="rein-y3" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno3} />
-									</div>
-									<div class="col-md-3 mb-2">
-										<label for="rein-y4">Colocados / Matriculados (4.º ano)</label>
-										<input id="rein-y4" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno4} />
-									</div>
-									<div class="col-md-3 mb-2">
-										<label for="rein-total">TOTAL (só 1º ano)</label>
-										<input id="rein-total" type="number" class="form-control formula-field" disabled value={editForm.reingressoTotal1Ano ?? 0} />
+									<div class="col-md-4 mb-2">
+										<label for="opc1f">Candidatos 1.ª opção (4)</label>
+										<input id="opc1f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao1F} />
 									</div>
 								</div>
 								<div class="row mt-2">
+									<div class="col-md-4 mb-2">
+										<label for="col1f">Colocados (3)</label>
+										<input id="col1f" type="number" min="0" class="form-control" bind:value={editForm.colocados1F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="class1f">Classif. últ. colocado</label>
+										<input id="class1f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo1F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="med1f">Média entrada</label>
+										<input id="med1f" type="number" min="0" step="0.01" class="form-control" bind:value={editForm.mediaEntrada1F} />
+									</div>
+								</div>
+							</div>
+							{/if}
+
+							{#if modalSection === 'all' || modalSection === '2f'}
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">2.ª fase (2F)</div>
+								<div class="row">
+									<div class="col-md-4 mb-2">
+										<label for="v2f">Vagas</label>
+										<input id="v2f" type="number" min="0" class="form-control" bind:value={editForm.vagas2F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="c2f">Candidatos</label>
+										<input id="c2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos2F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="opc2f">Candidatos 1.ª opção (4)</label>
+										<input id="opc2f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao2F} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-6 mb-2">
+										<label for="col2f">Colocados (1)</label>
+										<input id="col2f" type="number" min="0" class="form-control" bind:value={editForm.colocados2F} />
+									</div>
+									<div class="col-md-6 mb-2">
+										<label for="class2f">Classif. últ. colocado</label>
+										<input id="class2f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo2F} />
+									</div>
+								</div>
+							</div>
+							{/if}
+
+							{#if modalSection === 'all' || modalSection === '3f'}
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">3.ª fase (3F)</div>
+								<div class="row">
+									<div class="col-md-4 mb-2">
+										<label for="v3f">Vagas (5)</label>
+										<input id="v3f" type="number" min="0" class="form-control" bind:value={editForm.vagas3F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="v3ef">Vagas efetivas (2)</label>
+										<input id="v3ef" type="number" min="0" step="1" class="form-control" bind:value={editForm.vagas3F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="c3f">Candidatos</label>
+										<input id="c3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos3F} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-4 mb-2">
+										<label for="opc3f">Candidatos 1.ª opção (4)</label>
+										<input id="opc3f" type="number" min="0" class="form-control" bind:value={editForm.candidatos1Opcao3F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="col3f">Colocados (1)</label>
+										<input id="col3f" type="number" min="0" class="form-control" bind:value={editForm.colocados3F} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="class3f">Classif. últ. colocado</label>
+										<input id="class3f" type="number" min="0" step="1" class="form-control" bind:value={editForm.classificacaoUltimo3F} />
+									</div>
+								</div>
+							</div>
+							{/if}
+
+							{#if modalSection === 'all' || modalSection === 'totais'}
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Totais e movimentos</div>
+								<div class="row">
+									<div class="col-md-4 mb-2">
+										<label for="tot-cna">Total Candidatos CNA</label>
+										<input id="tot-cna" type="number" class="form-control formula-field" disabled value={editForm.totalCandidatosCna ?? 0} />
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="tot-col">Total Colocados</label>
+										<input
+											id="tot-col"
+											type="number"
+											class="form-control formula-field"
+											disabled
+											value={(Number(editForm.colocados1F ?? 0) + Number(editForm.colocados2F ?? 0) + Number(editForm.colocados3F ?? 0))}
+										/>
+									</div>
+									<div class="col-md-4 mb-2">
+										<label for="tot-mat">Total Matriculados</label>
+										<input id="tot-mat" type="number" class="form-control formula-field" disabled value={editForm.totalMatriculados ?? 0} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-12 mb-2">
+										<label for="sobras">SOBRAS pós 3.ª fase</label>
+										<input id="sobras" type="number" min="0" class="form-control" bind:value={editForm.sobrasPos3F} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-6 mb-2">
+										<label for="diff-3f">Transf CNA p outras IESup</label>
+										<input id="diff-3f" type="number" min="0" class="form-control" bind:value={editForm.diffVagasMatAntes3F} />
+									</div>
+									<div class="col-md-6 mb-2">
+										<label for="ocup-cna">Transf CNA p o IPVC</label>
+										<input id="ocup-cna" type="number" min="0" step="1" class="form-control" bind:value={editForm.percOcupacaoCna} />
+									</div>
+								</div>
+							</div>
+							{/if}
+						{:else if modalTab === 'reingresso-mudanca'}
+							<div class="regime-edit-title">Reingresso + Mudança par Int/Curso</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Reingresso</div>
+								<div class="row">
+									<div class="col-md-6 mb-2">
+										<label for="rein-vagas">Vagas</label>
+										<input id="rein-vagas" type="number" min="0" class="form-control" bind:value={editForm.reingressoVagas} />
+									</div>
+									<div class="col-md-6 mb-2">
+										<label for="rein-cand">Candidatos</label>
+										<input id="rein-cand" type="number" min="0" class="form-control" bind:value={editForm.reingressoCandidatos} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-3 mb-2">
+										<label for="rein-y1">1.º ano</label>
+										<input id="rein-y1" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno1} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="rein-y2">2.º ano</label>
+										<input id="rein-y2" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno2} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="rein-y3">3.º ano</label>
+										<input id="rein-y3" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno3} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="rein-y4">4.º ano</label>
+										<input id="rein-y4" type="number" min="0" class="form-control" bind:value={editForm.reingressoAno4} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-12 mb-2">
+										<label for="rein-total">TOTAL (só 1.º ano)</label>
+										<input id="rein-total" type="number" class="form-control formula-field" disabled value={editForm.reingressoTotal1Ano ?? 0} />
+									</div>
+								</div>
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Mudança par Int/Curso</div>
+								<div class="row">
 									<div class="col-md-4 mb-2">
 										<label for="mud-vagas">Vagas</label>
 										<input id="mud-vagas" type="number" min="0" class="form-control" bind:value={editForm.mudancaVagas} />
@@ -3122,93 +3195,165 @@
 									</div>
 									<div class="col-md-4 mb-2">
 										<label for="mud-col-mat">Colocados / Matriculados</label>
-										<input id="mud-col-mat" type="number" min="0" class="form-control" bind:value={editForm.mudancaColocadosMatriculados} />
+										<input id="mud-col-mat" type="number" class="form-control formula-field" disabled value={editForm.mudancaColocadosMatriculados ?? 0} />
 									</div>
 								</div>
-							{:else if modalTab === 'regimes-esp-internacionais'}
-								<p class="small text-muted mb-3">Editar colunas visíveis em <strong>Regimes Esp + Internacionais</strong>.</p>
+							</div>
+						{:else if modalTab === 'regimes-esp-internacionais'}
+							<div class="regime-edit-title">Regimes Esp + Internacionais</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Regimes Especiais</div>
 								<div class="row">
 									<div class="col-md-4 mb-2">
-										<label for="reg-v">Regimes Esp - Vagas</label>
+										<label for="reg-v">Vagas</label>
 										<input id="reg-v" type="number" min="0" class="form-control" bind:value={editForm.regimesEspVagas} />
 									</div>
 									<div class="col-md-4 mb-2">
-										<label for="reg-c">Regimes Esp - Candidatos</label>
+										<label for="reg-c">Candidatos</label>
 										<input id="reg-c" type="number" min="0" class="form-control" bind:value={editForm.regimesEspCandidatos} />
 									</div>
 									<div class="col-md-4 mb-2">
-										<label for="reg-m">Regimes Esp - Matriculados</label>
+										<label for="reg-m">Matriculados</label>
 										<input id="reg-m" type="number" min="0" class="form-control" bind:value={editForm.regimesEspMatriculados} />
 									</div>
 								</div>
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Estudantes Internacionais</div>
 								<div class="row">
 									<div class="col-md-4 mb-2">
-										<label for="int-v">Internacionais - Vagas</label>
+										<label for="int-v">Vagas</label>
 										<input id="int-v" type="number" min="0" class="form-control" bind:value={editForm.internationalVagas} />
 									</div>
 									<div class="col-md-4 mb-2">
-										<label for="int-c">Internacionais - Candidatos</label>
+										<label for="int-c">Candidatos</label>
 										<input id="int-c" type="number" min="0" class="form-control" bind:value={editForm.internationalCandidatos} />
 									</div>
 									<div class="col-md-4 mb-2">
-										<label for="int-m">Internacionais - Matriculados</label>
+										<label for="int-m">Matriculados</label>
 										<input id="int-m" type="number" min="0" class="form-control" bind:value={editForm.internationalMatriculados} />
 									</div>
 								</div>
-							{:else if modalTab === 'concursos'}
-								<p class="small text-muted mb-3">Editar colunas visíveis em <strong>Concursos Especiais</strong>.</p>
-								<div class="table-responsive">
-									<table class="table table-bordered table-sm">
-										<thead class="thead-light">
-											<tr>
-												<th scope="col">Tipo</th>
-												<th scope="col">Vagas</th>
-												<th scope="col">Candidatos</th>
-												<th scope="col">Colocados</th>
-												<th scope="col">Matriculados</th>
-											</tr>
-										</thead>
-										<tbody>
-											<tr>
-												<th scope="row" class="text-nowrap">&gt;23 anos</th>
-												<td><input id="conc-over23-v" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.over23Vagas} /></td>
-												<td><input id="conc-over23-c" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.over23Candidatos} /></td>
-												<td><input id="conc-over23-col" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.over23Colocados} /></td>
-												<td><input id="conc-over23-mat" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.over23Matriculados} /></td>
-											</tr>
-											<tr>
-												<th scope="row">CET</th>
-												<td><input id="conc-cet-v" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.cetVagas} /></td>
-												<td><input id="conc-cet-c" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.cetCandidatos} /></td>
-												<td><input id="conc-cet-col" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.cetColocados} /></td>
-												<td><input id="conc-cet-mat" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.cetMatriculados} /></td>
-											</tr>
-											<tr>
-												<th scope="row">CTeSP</th>
-												<td><input id="conc-ctesp-v" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.ctespVagas} /></td>
-												<td><input id="conc-ctesp-c" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.ctespCandidatos} /></td>
-												<td><input id="conc-ctesp-col" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.ctespColocados} /></td>
-												<td><input id="conc-ctesp-mat" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.ctespMatriculados} /></td>
-											</tr>
-											<tr>
-												<th scope="row">Outros sup.</th>
-												<td><input id="conc-other-v" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.otherHigherVagas} /></td>
-												<td><input id="conc-other-c" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.otherHigherCandidatos} /></td>
-												<td><input id="conc-other-col" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.otherHigherColocados} /></td>
-												<td><input id="conc-other-mat" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.otherHigherMatriculados} /></td>
-											</tr>
-											<tr>
-												<th scope="row">Dupla cert.</th>
-												<td><input id="conc-dupla-v" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.dualCertVagas} /></td>
-												<td><input id="conc-dupla-c" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.dualCertCandidatos} /></td>
-												<td><input id="conc-dupla-col" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.dualCertColocados} /></td>
-												<td><input id="conc-dupla-mat" type="number" min="0" class="form-control form-control-sm" bind:value={editForm.dualCertMatriculados} /></td>
-											</tr>
-										</tbody>
-									</table>
+							</div>
+						{:else if modalTab === 'concursos'}
+							<div class="regime-edit-title">Concursos Especiais</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">&gt;23 anos</div>
+								<div class="row">
+									<div class="col-md-3 mb-2">
+										<label for="conc-over23-v">Vagas</label>
+										<input id="conc-over23-v" type="number" min="0" class="form-control" bind:value={editForm.over23Vagas} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-over23-c">Candidatos</label>
+										<input id="conc-over23-c" type="number" min="0" class="form-control" bind:value={editForm.over23Candidatos} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-over23-col">Colocados</label>
+										<input id="conc-over23-col" type="number" min="0" class="form-control" bind:value={editForm.over23Colocados} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-over23-mat">Matriculados</label>
+										<input id="conc-over23-mat" type="number" min="0" class="form-control" bind:value={editForm.over23Matriculados} />
+									</div>
 								</div>
-							{:else if modalTab === 'totais'}
-								<p class="small text-muted mb-3">Editar colunas visíveis em <strong>Totais</strong>.</p>
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">CET</div>
+								<div class="row">
+									<div class="col-md-3 mb-2">
+										<label for="conc-cet-v">Vagas</label>
+										<input id="conc-cet-v" type="number" min="0" class="form-control" bind:value={editForm.cetVagas} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-cet-c">Candidatos</label>
+										<input id="conc-cet-c" type="number" min="0" class="form-control" bind:value={editForm.cetCandidatos} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-cet-col">Colocados</label>
+										<input id="conc-cet-col" type="number" min="0" class="form-control" bind:value={editForm.cetColocados} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-cet-mat">Matriculados</label>
+										<input id="conc-cet-mat" type="number" min="0" class="form-control" bind:value={editForm.cetMatriculados} />
+									</div>
+								</div>
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Titulares CTeSP</div>
+								<div class="row">
+									<div class="col-md-3 mb-2">
+										<label for="conc-ctesp-v">Vagas</label>
+										<input id="conc-ctesp-v" type="number" min="0" class="form-control" bind:value={editForm.ctespVagas} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-ctesp-c">Candidatos</label>
+										<input id="conc-ctesp-c" type="number" min="0" class="form-control" bind:value={editForm.ctespCandidatos} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-ctesp-col">Colocados</label>
+										<input id="conc-ctesp-col" type="number" min="0" class="form-control" bind:value={editForm.ctespColocados} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-ctesp-mat">Matriculados</label>
+										<input id="conc-ctesp-mat" type="number" min="0" class="form-control" bind:value={editForm.ctespMatriculados} />
+									</div>
+								</div>
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Titulares outros Curs Sup</div>
+								<div class="row">
+									<div class="col-md-3 mb-2">
+										<label for="conc-other-v">Vagas</label>
+										<input id="conc-other-v" type="number" min="0" class="form-control" bind:value={editForm.otherHigherVagas} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-other-c">Candidatos</label>
+										<input id="conc-other-c" type="number" min="0" class="form-control" bind:value={editForm.otherHigherCandidatos} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-other-col">Colocados</label>
+										<input id="conc-other-col" type="number" min="0" class="form-control" bind:value={editForm.otherHigherColocados} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-other-mat">Matriculados</label>
+										<input id="conc-other-mat" type="number" min="0" class="form-control" bind:value={editForm.otherHigherMatriculados} />
+									</div>
+								</div>
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Dupla Certif nível sec e c artísticos especializados</div>
+								<div class="row">
+									<div class="col-md-3 mb-2">
+										<label for="conc-dupla-v">Vagas</label>
+										<input id="conc-dupla-v" type="number" min="0" class="form-control" bind:value={editForm.dualCertVagas} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-dupla-c">Candidatos</label>
+										<input id="conc-dupla-c" type="number" min="0" class="form-control" bind:value={editForm.dualCertCandidatos} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-dupla-col">Colocados</label>
+										<input id="conc-dupla-col" type="number" min="0" class="form-control" bind:value={editForm.dualCertColocados} />
+									</div>
+									<div class="col-md-3 mb-2">
+										<label for="conc-dupla-mat">Matriculados</label>
+										<input id="conc-dupla-mat" type="number" min="0" class="form-control" bind:value={editForm.dualCertMatriculados} />
+									</div>
+								</div>
+							</div>
+						{:else if modalTab === 'totais'}
+							<div class="regime-edit-title">Totais</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">TOTAL MATRICULADOS por ano</div>
 								<div class="row">
 									<div class="col-md-3 mb-2">
 										<label for="tot-y1">1.º ano</label>
@@ -3227,21 +3372,24 @@
 										<input id="tot-y4" type="number" min="0" class="form-control" bind:value={editForm.year4} />
 									</div>
 								</div>
-								<div class="row mt-2">
-									<div class="col-md-6 mb-2">
+							</div>
+
+							<div class="regime-edit-section">
+								<div class="regime-edit-section-title">Vagas e movimentos</div>
+								<div class="row">
+									<div class="col-md-4 mb-2">
 										<label for="tot-pedidos">Pedidos de Anulação de matrícula</label>
 										<input id="tot-pedidos" type="number" min="0" class="form-control" bind:value={editForm.pedidosAnulacao} />
 									</div>
-									<div class="col-md-6 mb-2">
-										<label for="tot-vagas-dispo">TOTAL VAGAS disponiveis</label>
+									<div class="col-md-4 mb-2">
+										<label for="tot-vagas-dispo">TOTAL VAGAS disponíveis</label>
 										<input id="tot-vagas-dispo" type="number" min="0" class="form-control" bind:value={editForm.totalAvailableVacancies} />
 									</div>
-								</div>
-								<div class="row mt-2">
-									<div class="col-md-12 mb-2">
+									<div class="col-md-4 mb-2">
 										<label for="tot-diff">DIFERENÇA vagas/mat antes 3F</label>
 										<input id="tot-diff" type="number" min="0" class="form-control" bind:value={editForm.diffVagasMatAntes3F} />
 									</div>
+								</div>
 								</div>
 								<div class="row mt-2">
 									<div class="col-md-6 mb-2">

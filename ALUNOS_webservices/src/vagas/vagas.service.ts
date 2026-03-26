@@ -1330,5 +1330,127 @@ export class VagasService {
       ano
     };
   }
+
+  async listarAnos() {
+    const anos = await this.prisma.$queryRawUnsafe<
+      { ano_inicio: number; ano_fim: number; total_cursos: number; tem_dados: number }[]
+    >(`
+      SELECT
+        al.ano_inicio,
+        al.ano_fim,
+        COUNT(co.id_curso_oferta) AS total_cursos,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM vagas.estatistica_acesso ea
+          INNER JOIN vagas.curso_oferta co2 ON co2.id_curso_oferta = ea.id_curso_oferta
+          WHERE co2.id_ano_letivo = al.id_ano_letivo
+            AND (ea.vagas > 0 OR ea.candidatos > 0 OR ea.colocados > 0 OR ea.matriculados > 0)
+        ) THEN 1 ELSE 0 END AS tem_dados
+      FROM vagas.ano_letivo al
+      LEFT JOIN vagas.curso_oferta co ON co.id_ano_letivo = al.id_ano_letivo
+      GROUP BY al.ano_inicio, al.ano_fim, al.id_ano_letivo
+      ORDER BY al.ano_inicio DESC
+    `);
+    return anos.map((a) => ({
+      anoInicio: a.ano_inicio,
+      anoFim: a.ano_fim,
+      label: `${a.ano_inicio}/${a.ano_fim}`,
+      totalCursos: Number(a.total_cursos),
+      temDados: Number(a.tem_dados) === 1
+    }));
+  }
+
+  async apagarAno(anoInicio: number) {
+    await this.prisma.$executeRawUnsafe(`
+      DECLARE @id_ano INT = (
+        SELECT id_ano_letivo FROM vagas.ano_letivo
+        WHERE ano_inicio = ${anoInicio}
+      );
+      IF @id_ano IS NULL
+      BEGIN
+        THROW 50001, 'Ano letivo não encontrado', 1;
+      END;
+
+      DELETE FROM vagas.sobras_pos_3f
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.diff_vagas_mat_antes_3f_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.perc_ocupacao_cna_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.matriculas_ano
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.movimento_cna
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.estatistica_acesso
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano;
+
+      DELETE FROM vagas.ano_letivo WHERE id_ano_letivo = @id_ano;
+    `);
+    return { ok: true, message: `Ano ${anoInicio}/${anoInicio + 1} apagado com sucesso` };
+  }
+
+  async resetAno(anoInicio: number) {
+    await this.prisma.$executeRawUnsafe(`
+      DECLARE @id_ano INT = (
+        SELECT id_ano_letivo FROM vagas.ano_letivo
+        WHERE ano_inicio = ${anoInicio}
+      );
+      IF @id_ano IS NULL
+      BEGIN
+        THROW 50001, 'Ano letivo não encontrado', 1;
+      END;
+
+      DELETE FROM vagas.sobras_pos_3f
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.diff_vagas_mat_antes_3f_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.perc_ocupacao_cna_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      UPDATE vagas.matriculas_ano SET total_matriculados = 0
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      UPDATE vagas.movimento_cna SET quantidade = 0
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      UPDATE vagas.estatistica_acesso
+      SET vagas = 0, candidatos = 0, colocados = 0, matriculados = 0,
+          candidatos_primeira_op = 0, classificacao_ultimo = 0, media_entrada = 0
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+    `);
+    return { ok: true, message: `Dados do ano ${anoInicio}/${anoInicio + 1} limpos com sucesso` };
+  }
 }
 

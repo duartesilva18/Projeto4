@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Patch, Param, Post, Put } from '@nestjs/common';
 import { VagasService } from './vagas.service';
 
 @Controller('vagas')
@@ -18,6 +18,21 @@ export class VagasController {
   @Get('novo-ano')
   previewAnoLetivoSeguinte() {
     return this.vagasService.previewAnoLetivoSeguinte();
+  }
+
+  @Get('anos')
+  listarAnos() {
+    return this.vagasService.listarAnos();
+  }
+
+  @Delete('ano/:anoInicio')
+  apagarAno(@Param('anoInicio') anoInicio: string) {
+    return this.vagasService.apagarAno(Number(anoInicio));
+  }
+
+  @Put('ano/:anoInicio/reset')
+  resetAno(@Param('anoInicio') anoInicio: string) {
+    return this.vagasService.resetAno(Number(anoInicio));
   }
 
   @Patch('curso/:id')
