@@ -1,10 +1,9 @@
 /** @type {import('@sveltejs/kit').ServerLoad} */
 export const load = async () => {
-    // Configuração estática da sidebar para o módulo ALUNOS_VAGAS
     const sidebar_modulos = [
         {
             id_modulo: 1,
-            descricao: "ALUNOS_VAGAS",
+            descricao: "Proposta de Vagas",
             ativo: true,
             link: "/exemplos"
         }
@@ -15,20 +14,21 @@ export const load = async () => {
             id_area: 1,
             id_modulo: 1,
             ativo: true,
-            modulo: "ALUNOS_VAGAS",
+            modulo: "Proposta de Vagas",
+            designacao: "Dados por via de acesso",
             prefixo: "exemplos",
             path: "/exemplos",
             objetos: [
                 {
                     id_objeto: 1,
-                    descricao: "Regime Nacional (inclui sobras/anulações)",
+                    descricao: "Regime Nacional",
                     item_menu: true,
                     ativo: true,
                     ficheiro: "/exemplos?tab=regime-nacional"
                 },
                 {
                     id_objeto: 3,
-                    descricao: "Reingresso + Mudança par (Int/Curso)",
+                    descricao: "Reingresso + Mudança",
                     item_menu: true,
                     ativo: true,
                     ficheiro: "/exemplos?tab=reingresso-mudanca"
@@ -53,6 +53,31 @@ export const load = async () => {
                     item_menu: true,
                     ativo: true,
                     ficheiro: "/exemplos?tab=totais"
+                }
+            ]
+        },
+        {
+            id_area: 2,
+            id_modulo: 1,
+            ativo: true,
+            modulo: "Proposta de Vagas",
+            designacao: "Análise e Administração",
+            prefixo: "admin",
+            path: "/gestao-tabelas",
+            objetos: [
+                {
+                    id_objeto: 50,
+                    descricao: "Dashboard",
+                    item_menu: true,
+                    ativo: true,
+                    ficheiro: "/dashboard"
+                },
+                {
+                    id_objeto: 51,
+                    descricao: "Comparar anos",
+                    item_menu: true,
+                    ativo: true,
+                    ficheiro: "/comparar-anos"
                 },
                 {
                     id_objeto: 99,
