@@ -114,7 +114,7 @@
 
 	/**
 	 * Navegação por "páginas" via sidebar global:
-	 * - URL: /exemplos?tab=regime-nacional|sobras|reingresso|...
+	 * - URL: /proposta-vagas?tab=regime-nacional|sobras|reingresso|...
 	 */
 	const tabConfig = {
 		'regime-nacional': { objectId: 1, label: 'Regime Nacional (inclui sobras/anulações)' },

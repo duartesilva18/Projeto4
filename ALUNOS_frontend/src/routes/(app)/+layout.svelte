@@ -18,7 +18,7 @@
 <svelte:head>
     <!-- Fontawsome -->
     <link href="/external/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
     <!-- Boostrap -->
     <link rel="stylesheet" href="/external/bootstrap/dist/css/bootstrap.min.css">
     

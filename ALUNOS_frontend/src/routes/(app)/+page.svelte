@@ -4,8 +4,8 @@
 	import { redirect } from "@sveltejs/kit";
 
   if (browser) {
-    goto('/exemplos');
+    goto('/proposta-vagas');
   } else {
-    redirect(307, "/exemplos")
+    redirect(307, "/proposta-vagas")
   }
 </script>

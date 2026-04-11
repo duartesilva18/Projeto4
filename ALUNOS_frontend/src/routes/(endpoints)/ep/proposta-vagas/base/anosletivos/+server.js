@@ -4,7 +4,7 @@ import { json } from "@sveltejs/kit";
 
 export async function GET({url, cookies, fetch, locals}) {
     // para aceder a esta rota, é necessária uma das seguintes permissões:
-    const permissoes_acesso_rota = ["/exemplos/base"];
+    const permissoes_acesso_rota = ["/proposta-vagas/base"];
     if(!checkPermissaoRotas(permissoes_acesso_rota, locals.info_utili.permissoes_rota)){
         return json({error: 401, message: "Não autorizado a aceder a este endpoint"}, {status: 401});
     }

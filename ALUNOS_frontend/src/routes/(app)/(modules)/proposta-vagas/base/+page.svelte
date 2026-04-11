@@ -156,17 +156,17 @@
 		let promise = null;
 		switch(elem){
 			case "cd_letivo":
-				promise = await fetch(`/ep/exemplos/base/anosletivos${queryString}`)
+				promise = await fetch(`/ep/proposta-vagas/base/anosletivos${queryString}`)
 				if(promise.status == 200)
 					anosletivos = await promise.json()
 				break;
 			case "uo":
-				promise = await fetch(`/ep/exemplos/base/unidadesorganicas${queryString}`)
+				promise = await fetch(`/ep/proposta-vagas/base/unidadesorganicas${queryString}`)
 				if(promise.status == 200)
 					unidadesorganicas = await promise.json()
 				break;
 			case "cd_curso":
-				promise = await fetch(`/ep/exemplos/base/cursos${queryString}`)
+				promise = await fetch(`/ep/proposta-vagas/base/cursos${queryString}`)
 				if(promise.status == 200)
 					cursos = await promise.json()
 				break;
@@ -191,7 +191,7 @@
 		queryString += "&cd_curso=" + jQuery("#cd_curso").val();
 
 		table.clear().draw();
-		let promise = await fetch(`/ep/exemplos/base/pucs${encodeURI(queryString)}`)
+		let promise = await fetch(`/ep/proposta-vagas/base/pucs${encodeURI(queryString)}`)
 		if(promise.status == 200){
 			let pucs = await promise.json()
 
@@ -314,7 +314,7 @@
 		<hr>
 		
 		<p>{$t("base.recebido")} {data.texto}</p>
-		<a class="btn btn-primary" href="/exemplos/editoras">TESTE NAVEGAÇÃO href</a>
+		<a class="btn btn-primary" href="/proposta-vagas/editoras">TESTE NAVEGAÇÃO href</a>
 	</div>
 
 	<hr>

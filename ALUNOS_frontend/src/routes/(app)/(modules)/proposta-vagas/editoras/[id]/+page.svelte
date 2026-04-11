@@ -6,7 +6,6 @@
     import Breadcrum from "$lib/components/Breadcrum.svelte";
 	import { enhance } from "$app/forms";
 	import { goto } from "$app/navigation";
-	import FileUpload from "$lib/components/ui/inputs/FileUpload.svelte";
 
 	// titulo da página
 	pageTitle.title = $t("exemplos_editoras_nova.titulo_pagina")
@@ -24,13 +23,6 @@
 	let items_breadcrum = []
 
 	let btnSubmissaoAtivo = $state(true);
-
-
-	/** * @type {any[]} */
-	let selectedFiles = $state([]);
-	/** * @type {string|null} */
-	let errorMessage = $state(null)
-	
 </script>
 
 <style>
@@ -46,11 +38,6 @@
 		<div class="card">
 			<div class="card-header">{$t("exemplos_editoras_nova.form.titulo")}</div>
 				<form method="POST" enctype="multipart/form-data" use:enhance={({formElement, formData, action, cancel, submitter}) => {
-					if(selectedFiles){
-						formData.append("logotipo", selectedFiles[0]);
-					}
-
-
 					switch(action.search){
 						case "?/submissao":
 							btnSubmissaoAtivo = false;
@@ -80,7 +67,7 @@
 							toastr.success($t("exemplos_editoras_nova.toastr.form_sucesso"), $t("exemplos_editoras_nova.toastr.sucesso"), { timeOut: 5000, progressBar: true })
 							switch(action.search){							
 								case "?/submissao":
-									goto("/exemplos/editoras")
+									goto("/proposta-vagas/editoras")
 									break;
 							}
 						}
@@ -90,32 +77,21 @@
 				<div class="card-body">
 					<div class="form-group">
 						<label for="designacao">{$t("exemplos_editoras_nova.form.designacao")}</label>
-						<input type="designacao" id="designacao" name="designacao" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_designacao")}">
+						<input type="designacao" id="designacao" name="designacao" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_designacao")}" value={data.editora.designacao || ""}>
 						{#if form?.erro_designacao}
 							<p class="error">{form.erro_designacao}</p>
 						{/if}
 					</div>
 					<div class="form-group">
 						<label for="nif">{$t("exemplos_editoras_nova.form.nif")}</label>
-						<input type="nif" id="nif" name="nif" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_nif")}">
+						<input type="nif" id="nif" name="nif" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_nif")}" value={data.editora.nif || ""}>
 						{#if form?.erro_nif}
 							<p class="error">{form.erro_nif}</p>
 						{/if}
 					</div>
-
-					<div class="form-group">
-						<label for="ficheiro">{$t("exemplos_editoras_nova.form.logo")}</label>
-						<FileUpload multiple={true} bind:selectedFiles bind:errorMessage maxFileSizeMb={1}/>
-						{#if errorMessage}
-							<p class="error">{errorMessage}</p>
-						{/if}
-						{#if form?.erro_ficheiro}
-							<p class="error">{form?.erro_ficheiro}</p>
-						{/if}
-					</div>
 				</div>
 				<div class="card-footer d-flex justify-content-end">
-					<button type="submit" class="mx-1 btn btn-sm btn-primary" disabled={!btnSubmissaoAtivo} formaction="?/submissao"><i class="fa fa-dot-circle"></i> Criar</button>
+					<button type="submit" class="mx-1 btn btn-sm btn-primary" disabled={!btnSubmissaoAtivo} formaction="?/submissao"><i class="fa fa-dot-circle"></i> Editar</button>
 					<a type="button" href='../editoras' class="btn btn-sm btn-danger" ><i class="fa fa-ban"></i> Cancelar</a>
 				</div>
 			</form>

@@ -13,7 +13,7 @@
 	let anos = $derived(data.anos ?? []);
 
 	$effect(() => {
-		sidebarOptions.currentModule = 'alunos_vagas';
+		sidebarOptions.currentModule = 'Proposta de Vagas';
 		sidebarOptions.currentModuleId = 1;
 		sidebarOptions.currentObject = 'Gestão de Tabelas';
 		sidebarOptions.currentObjectId = 99;
@@ -77,7 +77,7 @@
 	}
 </script>
 
-<Breadcrum modulo="alunos_vagas" objeto="Gestão de Tabelas" />
+<Breadcrum modulo="Proposta de Vagas" objeto="Gestão de Tabelas" />
 
 <div class="container-fluid" style="padding: 24px;">
 	<div class="table-wrapper">

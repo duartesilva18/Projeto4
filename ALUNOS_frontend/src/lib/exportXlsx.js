@@ -42,7 +42,7 @@ function dataStyle(bg = null) {
 }
 
 /**
- * @param {import('../routes/(app)/(modules)/exemplos/+page.svelte').CourseData[]} data
+ * @param {import('../routes/(app)/(modules)/proposta-vagas/+page.svelte').CourseData[]} data
  * @param {string} anoLabel
  */
 export function exportToXlsx(data, anoLabel) {

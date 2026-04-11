@@ -68,7 +68,7 @@
 					orderable: false,
 					className: "dt-body-center",
 					render: function(/** @type {any} */ data, /** @type {any} */ type, /** @type {any} */ row){
-						return `<td><img src='/ep/exemplos/editoras/getLogotipo/${row[0]}' style="max-width: 100px; max-height: 100px;"/></td>`
+						return `<td><img src='/ep/proposta-vagas/editoras/getLogotipo/${row[0]}' style="max-width: 100px; max-height: 100px;"/></td>`
 					}
 				},
 				{
@@ -117,7 +117,7 @@
 			let queryString = '?';
 			queryString += 'id_editora=' + jQuery(this).data("id_editora");
 
-			let promise = await fetch(`/ep/exemplos/editoras/eliminar${queryString}`)
+			let promise = await fetch(`/ep/proposta-vagas/editoras/eliminar${queryString}`)
 			if(promise.status == 200) {
 				let res = await promise.json()
 				if(res.success){

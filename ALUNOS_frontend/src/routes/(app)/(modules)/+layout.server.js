@@ -5,7 +5,7 @@ export const load = async () => {
             id_modulo: 1,
             descricao: "Proposta de Vagas",
             ativo: true,
-            link: "/exemplos"
+            link: "/proposta-vagas"
         }
     ];
 
@@ -16,43 +16,43 @@ export const load = async () => {
             ativo: true,
             modulo: "Proposta de Vagas",
             designacao: "Dados por via de acesso",
-            prefixo: "exemplos",
-            path: "/exemplos",
+            prefixo: "proposta-vagas",
+            path: "/proposta-vagas",
             objetos: [
                 {
                     id_objeto: 1,
                     descricao: "Regime Nacional",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos?tab=regime-nacional"
+                    ficheiro: "/proposta-vagas?tab=regime-nacional"
                 },
                 {
                     id_objeto: 3,
                     descricao: "Reingresso + Mudança",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos?tab=reingresso-mudanca"
+                    ficheiro: "/proposta-vagas?tab=reingresso-mudanca"
                 },
                 {
                     id_objeto: 5,
                     descricao: "Concursos Especiais",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos?tab=concursos"
+                    ficheiro: "/proposta-vagas?tab=concursos"
                 },
                 {
                     id_objeto: 6,
                     descricao: "Regimes Esp + Internacionais",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos?tab=regimes-esp-internacionais"
+                    ficheiro: "/proposta-vagas?tab=regimes-esp-internacionais"
                 },
                 {
                     id_objeto: 8,
                     descricao: "Totais",
                     item_menu: true,
                     ativo: true,
-                    ficheiro: "/exemplos?tab=totais"
+                    ficheiro: "/proposta-vagas?tab=totais"
                 }
             ]
         },

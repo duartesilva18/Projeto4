@@ -73,7 +73,7 @@
 
 <div class="p-3" style="height: 100vh">
   <h3>Página sem conteúdo. Utilize a URL para navegar até às páginas específicas.</h3>
-  <h3><a href="/exemplos" target="_self">Entrar nas Páginas exemplo</a></h3>
+  <h3><a href="/proposta-vagas" target="_self">Proposta de Vagas</a></h3>
   <ul>
     <li>Ligações úteis:</li>
     <ul>
