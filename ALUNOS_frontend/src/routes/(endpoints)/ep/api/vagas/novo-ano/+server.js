@@ -19,7 +19,7 @@ export async function POST() {
 			}
 		});
 	} catch (e) {
-		console.error('Erro no endpoint /api/vagas/novo-ano', e);
+		console.error('Erro no endpoint /ep/api/vagas/novo-ano', e);
 		return new Response('Erro interno', { status: 500 });
 	}
 }
@@ -43,7 +43,7 @@ export async function GET() {
 			}
 		});
 	} catch (e) {
-		console.error('Erro no endpoint /api/vagas/novo-ano (GET)', e);
+		console.error('Erro no endpoint /ep/api/vagas/novo-ano (GET)', e);
 		return new Response('Erro interno', { status: 500 });
 	}
 }

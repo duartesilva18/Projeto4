@@ -20,7 +20,7 @@ export async function PATCH({ params, request }) {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (e) {
-		console.error('Erro no endpoint /api/vagas/curso/:id', e);
+		console.error('Erro no endpoint /ep/api/vagas/curso/:id', e);
 		return new Response('Erro interno', { status: 500 });
 	}
 }

@@ -50,9 +50,9 @@
 		try {
 			let res;
 			if (modalAction === 'delete') {
-				res = await fetch(`/api/vagas/ano/${modalAno.anoInicio}`, { method: 'DELETE' });
+				res = await fetch(`/ep/api/vagas/ano/${modalAno.anoInicio}`, { method: 'DELETE' });
 			} else {
-				res = await fetch(`/api/vagas/ano/${modalAno.anoInicio}/reset`, { method: 'PUT' });
+				res = await fetch(`/ep/api/vagas/ano/${modalAno.anoInicio}/reset`, { method: 'PUT' });
 			}
 
 			if (!res.ok) {

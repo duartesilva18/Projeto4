@@ -11,7 +11,7 @@ export async function GET() {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (e) {
-		console.error('Erro GET /api/vagas/escolas', e);
+		console.error('Erro GET /ep/api/vagas/escolas', e);
 		return new Response('Erro interno', { status: 500 });
 	}
 }

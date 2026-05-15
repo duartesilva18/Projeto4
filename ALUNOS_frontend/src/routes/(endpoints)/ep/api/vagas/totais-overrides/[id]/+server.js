@@ -4,14 +4,14 @@ import { PUBLIC_API_URL } from '$env/static/public';
 export async function PATCH({ params, request }) {
 	try {
 		const body = await request.json();
-		const res = await fetch(`${PUBLIC_API_URL}vagas/reingresso-mudanca/${params.id}`, {
+		const res = await fetch(`${PUBLIC_API_URL}vagas/totais-overrides/${params.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body)
 		});
 
 		if (!res.ok) {
-			return new Response('Erro ao guardar reingresso/mudança na API', { status: res.status });
+			return new Response('Erro ao guardar totais (overrides) na API', { status: res.status });
 		}
 
 		const data = await res.json().catch(() => ({}));
@@ -20,8 +20,7 @@ export async function PATCH({ params, request }) {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (e) {
-		console.error('Erro no endpoint /api/vagas/reingresso-mudanca/:id', e);
+		console.error('Erro no endpoint /ep/api/vagas/totais-overrides/:id', e);
 		return new Response('Erro interno', { status: 500 });
 	}
 }
-

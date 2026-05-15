@@ -200,6 +200,46 @@ END
 GO
 
 -- =========================================================
+--  PEDIDOS DE ANULAÇÃO DE MATRÍCULA (manual; não é derivado)
+--  Editável na tab "Totais" da Proposta de Vagas.
+-- =========================================================
+IF OBJECT_ID('vagas.pedidos_anulacao_override', 'U') IS NULL
+BEGIN
+    CREATE TABLE vagas.pedidos_anulacao_override (
+        id_pedidos_anulacao INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_curso_oferta     INT NOT NULL FOREIGN KEY REFERENCES vagas.curso_oferta(id_curso_oferta),
+        ano                 SMALLINT NOT NULL, -- corresponde a `cna.ano_colocacao`
+        pedidos_anulacao    INT NOT NULL DEFAULT (0),
+
+        CONSTRAINT uq_pedidos_anulacao_override UNIQUE (id_curso_oferta, ano)
+    );
+
+    CREATE INDEX idx_pedidos_anulacao_override
+        ON vagas.pedidos_anulacao_override (id_curso_oferta, ano);
+END
+GO
+
+-- =========================================================
+--  TOTAL VAGAS DISPONÍVEIS (manual; não é derivado)
+--  Editável na tab "Totais" da Proposta de Vagas.
+-- =========================================================
+IF OBJECT_ID('vagas.total_vagas_disponiveis_override', 'U') IS NULL
+BEGIN
+    CREATE TABLE vagas.total_vagas_disponiveis_override (
+        id_total_disponiveis     INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_curso_oferta          INT NOT NULL FOREIGN KEY REFERENCES vagas.curso_oferta(id_curso_oferta),
+        ano                      SMALLINT NOT NULL, -- corresponde a `cna.ano_colocacao`
+        total_vagas_disponiveis  INT NOT NULL DEFAULT (0),
+
+        CONSTRAINT uq_total_vagas_disponiveis_override UNIQUE (id_curso_oferta, ano)
+    );
+
+    CREATE INDEX idx_total_vagas_disponiveis_override
+        ON vagas.total_vagas_disponiveis_override (id_curso_oferta, ano);
+END
+GO
+
+-- =========================================================
 --  DADOS INICIAIS PARA VIA_ACESSO E FASE
 -- =========================================================
 

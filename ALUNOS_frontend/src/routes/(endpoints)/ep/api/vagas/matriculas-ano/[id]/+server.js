@@ -4,14 +4,14 @@ import { PUBLIC_API_URL } from '$env/static/public';
 export async function PATCH({ params, request }) {
 	try {
 		const body = await request.json();
-		const res = await fetch(`${PUBLIC_API_URL}vagas/concursos/${params.id}`, {
+		const res = await fetch(`${PUBLIC_API_URL}vagas/matriculas-ano/${params.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body)
 		});
 
 		if (!res.ok) {
-			return new Response('Erro ao guardar concursos na API', { status: res.status });
+			return new Response('Erro ao guardar matrículas/ano na API', { status: res.status });
 		}
 
 		const data = await res.json().catch(() => ({}));
@@ -20,8 +20,7 @@ export async function PATCH({ params, request }) {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (e) {
-		console.error('Erro no endpoint /api/vagas/concursos/:id', e);
+		console.error('Erro no endpoint /ep/api/vagas/matriculas-ano/:id', e);
 		return new Response('Erro interno', { status: 500 });
 	}
 }
-

@@ -139,5 +139,31 @@ export class VagasController {
   ) {
     return this.vagasService.atualizarReingressoMudanca(id, body);
   }
+
+  @Patch('matriculas-ano/:id')
+  atualizarMatriculasAno(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      year1?: number;
+      year2?: number;
+      year3?: number;
+      year4?: number;
+    }
+  ) {
+    return this.vagasService.atualizarMatriculasAno(id, body);
+  }
+
+  @Patch('totais-overrides/:id')
+  atualizarTotaisOverrides(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      pedidosAnulacao?: number;
+      totalAvailableVacancies?: number;
+    }
+  ) {
+    return this.vagasService.atualizarTotaisOverrides(id, body);
+  }
 }
 

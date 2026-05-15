@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -109,19 +110,8 @@ export class VagasService {
       return { ok: true, updated: 0 };
     }
 
-    // Executar em sequência (transaction implícita por batch T-SQL)
-    // Usamos UPDATE/INSERT por fase (idempotente) para evitar depender de MERGE.
-    await this.prisma.$executeRawUnsafe(`
-      DECLARE @id_curso_oferta INT = ${idCursoOferta};
-      DECLARE @ano SMALLINT = ${anoColocacao};
-      DECLARE @id_via_cna INT = (SELECT id_via_acesso FROM vagas.via_acesso WHERE codigo = 'CNA');
-
-      DECLARE @id_fase_1 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 1);
-      DECLARE @id_fase_2 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 2);
-      DECLARE @id_fase_3 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 3);
-
-      -- 1.ª fase
-      ${v1 !== undefined || c1 !== undefined || l1 !== undefined || opc1 !== undefined || class1 !== undefined || media1 !== undefined ? `
+    const fase1Frag = (v1 !== undefined || c1 !== undefined || l1 !== undefined || opc1 !== undefined || class1 !== undefined || media1 !== undefined)
+      ? Prisma.sql`
       IF EXISTS (
         SELECT 1
         FROM vagas.estatistica_acesso
@@ -132,13 +122,13 @@ export class VagasService {
       )
       BEGIN
         UPDATE vagas.estatistica_acesso
-        SET vagas = ${v1 ?? 'NULL'},
-            candidatos = ${c1 ?? 'NULL'},
-            candidatos_primeira_op = ${opc1 ?? 'NULL'},
-            classificacao_ultimo = ${class1 ?? 'NULL'},
-            colocados = ${l1 ?? 'NULL'},
-            matriculados = ${l1 ?? 'NULL'},
-            media_entrada = ${media1 ?? 'NULL'}
+        SET vagas = ${v1 ?? null},
+            candidatos = ${c1 ?? null},
+            candidatos_primeira_op = ${opc1 ?? null},
+            classificacao_ultimo = ${class1 ?? null},
+            colocados = ${l1 ?? null},
+            matriculados = ${l1 ?? null},
+            media_entrada = ${media1 ?? null}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
           AND id_fase = @id_fase_1
@@ -149,12 +139,13 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, ${v1 ?? 'NULL'}, ${c1 ?? 'NULL'}, ${opc1 ?? 'NULL'}, ${l1 ?? 'NULL'}, ${l1 ?? 'NULL'}, ${class1 ?? 'NULL'}, ${media1 ?? 'NULL'});
+          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, ${v1 ?? null}, ${c1 ?? null}, ${opc1 ?? null}, ${l1 ?? null}, ${l1 ?? null}, ${class1 ?? null}, ${media1 ?? null});
       END
-      ` : ''}
+    `
+      : Prisma.empty;
 
-      -- 2.ª fase
-      ${v2 !== undefined || c2 !== undefined || l2 !== undefined || opc2 !== undefined || class2 !== undefined ? `
+    const fase2Frag = (v2 !== undefined || c2 !== undefined || l2 !== undefined || opc2 !== undefined || class2 !== undefined)
+      ? Prisma.sql`
       IF EXISTS (
         SELECT 1
         FROM vagas.estatistica_acesso
@@ -165,12 +156,12 @@ export class VagasService {
       )
       BEGIN
         UPDATE vagas.estatistica_acesso
-        SET vagas = ${v2 ?? 'NULL'},
-            candidatos = ${c2 ?? 'NULL'},
-            candidatos_primeira_op = ${opc2 ?? 'NULL'},
-            colocados = ${l2 ?? 'NULL'},
-            matriculados = ${l2 ?? 'NULL'},
-            classificacao_ultimo = ${class2 ?? 'NULL'}
+        SET vagas = ${v2 ?? null},
+            candidatos = ${c2 ?? null},
+            candidatos_primeira_op = ${opc2 ?? null},
+            colocados = ${l2 ?? null},
+            matriculados = ${l2 ?? null},
+            classificacao_ultimo = ${class2 ?? null}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
           AND id_fase = @id_fase_2
@@ -181,12 +172,13 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, ${v2 ?? 'NULL'}, ${c2 ?? 'NULL'}, ${opc2 ?? 'NULL'}, ${l2 ?? 'NULL'}, ${l2 ?? 'NULL'}, ${class2 ?? 'NULL'}, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, ${v2 ?? null}, ${c2 ?? null}, ${opc2 ?? null}, ${l2 ?? null}, ${l2 ?? null}, ${class2 ?? null}, NULL);
       END
-      ` : ''}
+    `
+      : Prisma.empty;
 
-      -- 3.ª fase
-      ${v3 !== undefined || c3 !== undefined || l3 !== undefined || opc3 !== undefined || class3 !== undefined ? `
+    const fase3Frag = (v3 !== undefined || c3 !== undefined || l3 !== undefined || opc3 !== undefined || class3 !== undefined)
+      ? Prisma.sql`
       IF EXISTS (
         SELECT 1
         FROM vagas.estatistica_acesso
@@ -197,12 +189,12 @@ export class VagasService {
       )
       BEGIN
         UPDATE vagas.estatistica_acesso
-        SET vagas = ${v3 ?? 'NULL'},
-            candidatos = ${c3 ?? 'NULL'},
-            candidatos_primeira_op = ${opc3 ?? 'NULL'},
-            colocados = ${l3 ?? 'NULL'},
-            matriculados = ${l3 ?? 'NULL'},
-            classificacao_ultimo = ${class3 ?? 'NULL'}
+        SET vagas = ${v3 ?? null},
+            candidatos = ${c3 ?? null},
+            candidatos_primeira_op = ${opc3 ?? null},
+            colocados = ${l3 ?? null},
+            matriculados = ${l3 ?? null},
+            classificacao_ultimo = ${class3 ?? null}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
           AND id_fase = @id_fase_3
@@ -213,12 +205,13 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, ${v3 ?? 'NULL'}, ${c3 ?? 'NULL'}, ${opc3 ?? 'NULL'}, ${l3 ?? 'NULL'}, ${l3 ?? 'NULL'}, ${class3 ?? 'NULL'}, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, ${v3 ?? null}, ${c3 ?? null}, ${opc3 ?? null}, ${l3 ?? null}, ${l3 ?? null}, ${class3 ?? null}, NULL);
       END
-      ` : ''}
+    `
+      : Prisma.empty;
 
-      -- SOBRAS (inseridas manualmente)
-      ${sobrasPos3F !== undefined ? `
+    const sobrasFrag = sobrasPos3F !== undefined
+      ? Prisma.sql`
       IF EXISTS (
         SELECT 1
         FROM vagas.sobras_pos_3f
@@ -236,10 +229,11 @@ export class VagasService {
         INSERT INTO vagas.sobras_pos_3f (id_curso_oferta, ano, sobras_pos_3f)
         VALUES (@id_curso_oferta, @ano, ${sobrasPos3F});
       END
-      ` : ''}
+    `
+      : Prisma.empty;
 
-      -- DIFERENÇA VAGAS/MAT (override manual)
-      ${diffVagasMatAntes3F !== undefined ? `
+    const diffFrag = diffVagasMatAntes3F !== undefined
+      ? Prisma.sql`
       IF EXISTS (
         SELECT 1
         FROM vagas.diff_vagas_mat_antes_3f_override
@@ -257,10 +251,11 @@ export class VagasService {
         INSERT INTO vagas.diff_vagas_mat_antes_3f_override (id_curso_oferta, ano, diff_vagas_mat_antes_3f)
         VALUES (@id_curso_oferta, @ano, ${diffVagasMatAntes3F});
       END
-      ` : ''}
+    `
+      : Prisma.empty;
 
-      -- TRANSF CNA p o IPVC (override manual)
-      ${percOcupacaoCna !== undefined ? `
+    const percFrag = percOcupacaoCna !== undefined
+      ? Prisma.sql`
       IF EXISTS (
         SELECT 1
         FROM vagas.perc_ocupacao_cna_override
@@ -278,8 +273,38 @@ export class VagasService {
         INSERT INTO vagas.perc_ocupacao_cna_override (id_curso_oferta, ano, perc_ocupacao_cna)
         VALUES (@id_curso_oferta, @ano, ${percOcupacaoCna});
       END
-      ` : ''}
-    `);
+    `
+      : Prisma.empty;
+
+    // Executar em sequência (transaction implícita por batch T-SQL)
+    // Usamos UPDATE/INSERT por fase (idempotente) para evitar depender de MERGE.
+    await this.prisma.$executeRaw`
+      DECLARE @id_curso_oferta INT = ${idCursoOferta};
+      DECLARE @ano SMALLINT = ${anoColocacao};
+      DECLARE @id_via_cna INT = (SELECT id_via_acesso FROM vagas.via_acesso WHERE codigo = 'CNA');
+
+      DECLARE @id_fase_1 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 1);
+      DECLARE @id_fase_2 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 2);
+      DECLARE @id_fase_3 INT = (SELECT id_fase FROM vagas.fase WHERE id_via_acesso = @id_via_cna AND ordem = 3);
+
+      -- 1.ª fase
+      ${fase1Frag}
+
+      -- 2.ª fase
+      ${fase2Frag}
+
+      -- 3.ª fase
+      ${fase3Frag}
+
+      -- SOBRAS (inseridas manualmente)
+      ${sobrasFrag}
+
+      -- DIFERENÇA VAGAS/MAT (override manual)
+      ${diffFrag}
+
+      -- TRANSF CNA p o IPVC (override manual)
+      ${percFrag}
+    `;
 
     return { ok: true };
   }
@@ -350,7 +375,7 @@ export class VagasService {
     const dualL = toVal(body.dualCertColocados);
     const dualM = toVal(body.dualCertMatriculados);
 
-    await this.prisma.$executeRawUnsafe(`
+    await this.prisma.$executeRaw`
       DECLARE @id_curso_oferta INT = ${idCursoOferta};
       DECLARE @ano SMALLINT = ${anoColocacao};
       DECLARE @id_via_esp INT = (SELECT id_via_acesso FROM vagas.via_acesso WHERE codigo = 'ESP');
@@ -520,7 +545,7 @@ export class VagasService {
         VALUES
           (@id_curso_oferta, @id_via_esp, @id_fase_5, @ano, ${dualV}, ${dualC}, NULL, ${dualL}, ${dualM}, NULL, NULL);
       END
-    `);
+    `;
 
     return { ok: true };
   }
@@ -560,7 +585,7 @@ export class VagasService {
     const intC = toVal(body.internationalCandidatos);
     const intM = toVal(body.internationalMatriculados);
 
-    await this.prisma.$executeRawUnsafe(`
+    await this.prisma.$executeRaw`
       DECLARE @id_curso_oferta INT = ${idCursoOferta};
       DECLARE @ano SMALLINT = ${anoColocacao};
 
@@ -590,7 +615,7 @@ export class VagasService {
         (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
       VALUES
         (@id_curso_oferta, @id_via_int, NULL, @ano, ${intV}, ${intC}, NULL, ${intM}, ${intM}, NULL, NULL);
-    `);
+    `;
 
     return { ok: true };
   }
@@ -637,7 +662,7 @@ export class VagasService {
     const mudC = toVal(body.mudancaCandidatos);
     const mudCM = toVal(body.mudancaColocadosMatriculados);
 
-    await this.prisma.$executeRawUnsafe(`
+    await this.prisma.$executeRaw`
       DECLARE @id_curso_oferta INT = ${idCursoOferta};
       DECLARE @ano SMALLINT = ${anoColocacao};
       DECLARE @id_via_reing INT = (SELECT id_via_acesso FROM vagas.via_acesso WHERE codigo = 'REING');
@@ -734,7 +759,170 @@ export class VagasService {
         (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
       VALUES
         (@id_curso_oferta, @id_via_mud, NULL, @ano, ${mudV}, ${mudC}, NULL, ${mudCM}, ${mudCM}, NULL, NULL);
-    `);
+    `;
+
+    return { ok: true };
+  }
+
+  /**
+   * Atualiza os totais de matriculados por ano de curso (1.º a 4.º ano)
+   * na tabela vagas.matriculas_ano. Faz upsert (UPDATE se existir, INSERT caso contrário).
+   */
+  async atualizarMatriculasAno(
+    id: string,
+    body: {
+      year1?: number;
+      year2?: number;
+      year3?: number;
+      year4?: number;
+    }
+  ) {
+    const [idCursoOfertaStr, anoColocacaoStr] = id.split('-');
+    const idCursoOferta = Number(idCursoOfertaStr);
+    const anoColocacao = Number(anoColocacaoStr);
+
+    if (!Number.isFinite(idCursoOferta) || !Number.isFinite(anoColocacao)) {
+      throw new Error(`id inválido para matrículas/ano: ${id}`);
+    }
+
+    const toInt = (v: unknown) => {
+      if (v === undefined || v === null) return undefined;
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : undefined;
+    };
+
+    const y1 = toInt(body.year1);
+    const y2 = toInt(body.year2);
+    const y3 = toInt(body.year3);
+    const y4 = toInt(body.year4);
+
+    if ([y1, y2, y3, y4].every((x) => x === undefined)) {
+      return { ok: true, updated: 0 };
+    }
+
+    const upsertFrag = (anoCurso: number, total: number | undefined) =>
+      total === undefined
+        ? Prisma.empty
+        : Prisma.sql`
+      IF EXISTS (
+        SELECT 1 FROM vagas.matriculas_ano
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+          AND ano_curso = ${anoCurso}
+      )
+      BEGIN
+        UPDATE vagas.matriculas_ano
+        SET total_matriculados = ${total}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+          AND ano_curso = ${anoCurso};
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.matriculas_ano (id_curso_oferta, ano, ano_curso, total_matriculados)
+        VALUES (@id_curso_oferta, @ano, ${anoCurso}, ${total});
+      END
+    `;
+
+    await this.prisma.$executeRaw`
+      DECLARE @id_curso_oferta INT = ${idCursoOferta};
+      DECLARE @ano SMALLINT = ${anoColocacao};
+
+      ${upsertFrag(1, y1)}
+      ${upsertFrag(2, y2)}
+      ${upsertFrag(3, y3)}
+      ${upsertFrag(4, y4)}
+    `;
+
+    return { ok: true };
+  }
+
+  /**
+   * Atualiza os totais manuais (sem coluna nas tabelas base) que aparecem na
+   * tab "Totais" da Proposta de Vagas:
+   * - Pedidos de Anulação de matrícula  -> vagas.pedidos_anulacao_override
+   * - TOTAL VAGAS disponíveis           -> vagas.total_vagas_disponiveis_override
+   *
+   * Faz upsert (UPDATE se existir, INSERT caso contrário) por
+   * (id_curso_oferta, ano).
+   */
+  async atualizarTotaisOverrides(
+    id: string,
+    body: {
+      pedidosAnulacao?: number;
+      totalAvailableVacancies?: number;
+    }
+  ) {
+    const [idCursoOfertaStr, anoColocacaoStr] = id.split('-');
+    const idCursoOferta = Number(idCursoOfertaStr);
+    const anoColocacao = Number(anoColocacaoStr);
+
+    if (!Number.isFinite(idCursoOferta) || !Number.isFinite(anoColocacao)) {
+      throw new Error(`id inválido para totais-overrides: ${id}`);
+    }
+
+    const toInt = (v: unknown) => {
+      if (v === undefined || v === null) return undefined;
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : undefined;
+    };
+
+    const pedidos = toInt(body.pedidosAnulacao);
+    const disponiveis = toInt(body.totalAvailableVacancies);
+
+    if (pedidos === undefined && disponiveis === undefined) {
+      return { ok: true, updated: 0 };
+    }
+
+    const pedidosFrag = pedidos === undefined
+      ? Prisma.empty
+      : Prisma.sql`
+      IF EXISTS (
+        SELECT 1 FROM vagas.pedidos_anulacao_override
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.pedidos_anulacao_override
+        SET pedidos_anulacao = ${pedidos}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.pedidos_anulacao_override (id_curso_oferta, ano, pedidos_anulacao)
+        VALUES (@id_curso_oferta, @ano, ${pedidos});
+      END
+    `;
+
+    const disponiveisFrag = disponiveis === undefined
+      ? Prisma.empty
+      : Prisma.sql`
+      IF EXISTS (
+        SELECT 1 FROM vagas.total_vagas_disponiveis_override
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.total_vagas_disponiveis_override
+        SET total_vagas_disponiveis = ${disponiveis}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.total_vagas_disponiveis_override (id_curso_oferta, ano, total_vagas_disponiveis)
+        VALUES (@id_curso_oferta, @ano, ${disponiveis});
+      END
+    `;
+
+    await this.prisma.$executeRaw`
+      DECLARE @id_curso_oferta INT = ${idCursoOferta};
+      DECLARE @ano SMALLINT = ${anoColocacao};
+
+      ${pedidosFrag}
+      ${disponiveisFrag}
+    `;
 
     return { ok: true };
   }
@@ -742,8 +930,7 @@ export class VagasService {
   async listarResumoTabela() {
     // Para já usamos diretamente a view agregada definida em bd.sql:
     // vagas.vw_resumo_cna_por_curso
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT
+    const rows: any[] = await this.prisma.$queryRaw`SELECT
          cna.id_curso_oferta,
          cna.ano_letivo_inicio,
          cna.ano_letivo_fim,
@@ -785,6 +972,9 @@ export class VagasService {
          cna.total_matriculados_curso,
 
          COALESCE(sob.sobras_pos_3f, 0) AS sobras_pos_3f,
+         COALESCE(pao.pedidos_anulacao, 0) AS pedidos_anulacao,
+         COALESCE(tvd.total_vagas_disponiveis, 0) AS total_vagas_disponiveis,
+         CASE WHEN tvd.total_vagas_disponiveis IS NULL THEN 0 ELSE 1 END AS total_vagas_disponiveis_override,
 
          -- Concursos Especiais (ESP) - via f.ordem (1..5)
          COALESCE(esp.over23Vagas, 0) AS over23Vagas,
@@ -844,6 +1034,12 @@ export class VagasService {
       LEFT JOIN vagas.perc_ocupacao_cna_override ipvc
              ON ipvc.id_curso_oferta = cna.id_curso_oferta
             AND ipvc.ano = cna.ano_colocacao
+      LEFT JOIN vagas.pedidos_anulacao_override pao
+             ON pao.id_curso_oferta = cna.id_curso_oferta
+            AND pao.ano = cna.ano_colocacao
+      LEFT JOIN vagas.total_vagas_disponiveis_override tvd
+             ON tvd.id_curso_oferta = cna.id_curso_oferta
+            AND tvd.ano = cna.ano_colocacao
 
        LEFT JOIN (
          SELECT
@@ -936,8 +1132,7 @@ export class VagasService {
               ON mud.id_curso_oferta = cna.id_curso_oferta
              AND mud.ano_colocacao = cna.ano_colocacao
 
-       ORDER BY cna.ano_letivo_inicio DESC, cna.nome_escola, cna.nome_curso`
-    );
+       ORDER BY cna.ano_letivo_inicio DESC, cna.nome_escola, cna.nome_curso`;
 
     // Mapear para estrutura tipo CourseData do mockup
     const mapped = rows.map((row) => {
@@ -1033,8 +1228,10 @@ export class VagasService {
         totalCandidatosCna: row.total_candidatos_cna || 0,
         totalColocados: totalColocadosConcursos,
         totalMatriculados: totalMatriculados,
-        pedidosAnulacao: 0,
-        totalAvailableVacancies: vagasTotal,
+        pedidosAnulacao: row.pedidos_anulacao ?? 0,
+        totalAvailableVacancies: (row.total_vagas_disponiveis_override === 1)
+          ? (row.total_vagas_disponiveis ?? 0)
+          : vagasTotal,
         diffVacanciesEnrolled: vagasTotal - matricTotal,
 
         // Diferença vagas/matriculados antes da 3.ª fase (campo de fórmula da view)
@@ -1073,11 +1270,11 @@ export class VagasService {
   }
 
   async listarEscolas() {
-    const rows: any[] = await this.prisma.$queryRawUnsafe(`
+    const rows: any[] = await this.prisma.$queryRaw`
       SELECT id_escola, codigo_escola, nome_escola
       FROM vagas.escola
       ORDER BY nome_escola
-    `);
+    `;
     return rows.map((r) => ({
       id: r.id_escola,
       codigo: r.codigo_escola,
@@ -1086,13 +1283,13 @@ export class VagasService {
   }
 
   async listarCursos() {
-    const rows: any[] = await this.prisma.$queryRawUnsafe(`
+    const rows: any[] = await this.prisma.$queryRaw`
       SELECT c.id_curso, c.codigo_dges, c.nome_curso, c.regime,
              e.id_escola, e.nome_escola
       FROM vagas.curso c
       INNER JOIN vagas.escola e ON e.id_escola = c.id_escola
       ORDER BY e.nome_escola, c.nome_curso
-    `);
+    `;
     return rows.map((r) => ({
       id: r.id_curso,
       codigo: r.codigo_dges,
@@ -1104,7 +1301,7 @@ export class VagasService {
   }
 
   async criarAnoLetivoSeguinte() {
-    await this.prisma.$executeRawUnsafe(`
+    await this.prisma.$executeRaw`
       DECLARE @max_ano_inicio INT =
       (
         SELECT MAX(ano_inicio) FROM vagas.ano_letivo
@@ -1218,16 +1415,14 @@ export class VagasService {
          AND m.ano            = @ano_coloc
          AND m.ano_curso      = AC.ano_curso
       WHERE m.id_matriculas_ano IS NULL;
-    `);
+    `;
 
     // devolver informação mínima sobre o ano criado
-    const created = await this.prisma.$queryRawUnsafe<
+    const created = await this.prisma.$queryRaw<
       { ano_inicio: number; ano_fim: number }[]
-    >(
-      `SELECT ano_inicio, ano_fim
-       FROM vagas.ano_letivo
-       WHERE ano_inicio = (SELECT MAX(ano_inicio) FROM vagas.ano_letivo)`
-    );
+    >`SELECT ano_inicio, ano_fim
+      FROM vagas.ano_letivo
+      WHERE ano_inicio = (SELECT MAX(ano_inicio) FROM vagas.ano_letivo)`;
 
     return {
       ok: true,
@@ -1236,10 +1431,9 @@ export class VagasService {
   }
 
   async previewAnoLetivoSeguinte() {
-    const next = await this.prisma.$queryRawUnsafe<
+    const next = await this.prisma.$queryRaw<
       { ano_inicio: number; ano_fim: number }[]
-    >(
-      `
+    >`
       DECLARE @max_ano_inicio INT =
       (
         SELECT MAX(ano_inicio) FROM vagas.ano_letivo
@@ -1253,8 +1447,7 @@ export class VagasService {
       SELECT
         (@max_ano_inicio + 1) AS ano_inicio,
         (@max_ano_inicio + 2) AS ano_fim;
-      `
-    );
+    `;
 
     const ano = next[0] ?? null;
     return {
@@ -1264,9 +1457,9 @@ export class VagasService {
   }
 
   async listarAnos() {
-    const anos = await this.prisma.$queryRawUnsafe<
+    const anos = await this.prisma.$queryRaw<
       { ano_inicio: number; ano_fim: number; total_cursos: number; tem_dados: number }[]
-    >(`
+    >`
       SELECT
         al.ano_inicio,
         al.ano_fim,
@@ -1281,7 +1474,7 @@ export class VagasService {
       LEFT JOIN vagas.curso_oferta co ON co.id_ano_letivo = al.id_ano_letivo
       GROUP BY al.ano_inicio, al.ano_fim, al.id_ano_letivo
       ORDER BY al.ano_inicio DESC
-    `);
+    `;
     return anos.map((a) => ({
       anoInicio: a.ano_inicio,
       anoFim: a.ano_fim,
@@ -1292,7 +1485,7 @@ export class VagasService {
   }
 
   async apagarAno(anoInicio: number) {
-    await this.prisma.$executeRawUnsafe(`
+    await this.prisma.$executeRaw`
       DECLARE @id_ano INT = (
         SELECT id_ano_letivo FROM vagas.ano_letivo
         WHERE ano_inicio = ${anoInicio}
@@ -1313,6 +1506,16 @@ export class VagasService {
       );
 
       DELETE FROM vagas.perc_ocupacao_cna_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.pedidos_anulacao_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.total_vagas_disponiveis_override
       WHERE id_curso_oferta IN (
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );
@@ -1335,12 +1538,12 @@ export class VagasService {
       DELETE FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano;
 
       DELETE FROM vagas.ano_letivo WHERE id_ano_letivo = @id_ano;
-    `);
+    `;
     return { ok: true, message: `Ano ${anoInicio}/${anoInicio + 1} apagado com sucesso` };
   }
 
   async resetAno(anoInicio: number) {
-    await this.prisma.$executeRawUnsafe(`
+    await this.prisma.$executeRaw`
       DECLARE @id_ano INT = (
         SELECT id_ano_letivo FROM vagas.ano_letivo
         WHERE ano_inicio = ${anoInicio}
@@ -1365,6 +1568,16 @@ export class VagasService {
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );
 
+      DELETE FROM vagas.pedidos_anulacao_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.total_vagas_disponiveis_override
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
       UPDATE vagas.matriculas_ano SET total_matriculados = 0
       WHERE id_curso_oferta IN (
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
@@ -1381,7 +1594,7 @@ export class VagasService {
       WHERE id_curso_oferta IN (
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );
-    `);
+    `;
     return { ok: true, message: `Dados do ano ${anoInicio}/${anoInicio + 1} limpos com sucesso` };
   }
 }

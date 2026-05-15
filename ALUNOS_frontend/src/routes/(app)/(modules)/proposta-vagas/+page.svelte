@@ -416,7 +416,7 @@
 	 * @param {keyof CourseData} field
 	 */
 	function beginInlineEdit(row, field) {
-		if (activeTab !== 'regime-nacional' && activeTab !== 'sobras' && activeTab !== 'full' && activeTab !== 'reingresso-mudanca' && activeTab !== 'concursos' && activeTab !== 'regimes-esp-internacionais') return;
+		if (activeTab !== 'regime-nacional' && activeTab !== 'sobras' && activeTab !== 'full' && activeTab !== 'reingresso-mudanca' && activeTab !== 'concursos' && activeTab !== 'regimes-esp-internacionais' && activeTab !== 'totais') return;
 		if (activeTab === 'reingresso-mudanca' && (field === 'reingressoTotal1Ano' || field === 'mudancaColocadosMatriculados')) return;
 		inlineEditRow = row;
 		inlineEditRowId = row.id;
@@ -557,6 +557,12 @@
 			case 'internationalVagas': return Number(r.internationalVagas ?? 0);
 			case 'internationalCandidatos': return Number(r.internationalCandidatos ?? 0);
 			case 'internationalMatriculados': return Number(r.internationalMatriculados ?? 0);
+			case 'year1': return Number(r.year1 ?? 0);
+			case 'year2': return Number(r.year2 ?? 0);
+			case 'year3': return Number(r.year3 ?? 0);
+			case 'year4': return Number(r.year4 ?? 0);
+			case 'pedidosAnulacao': return Number(r.pedidosAnulacao ?? 0);
+			case 'totalAvailableVacancies': return Number(r.totalAvailableVacancies ?? 0);
 			default:
 				return NaN;
 			}
@@ -766,6 +772,24 @@
 					internationalMatriculados: inlineEditField === 'internationalMatriculados' ? newVal : (r.internationalMatriculados ?? 0)
 				};
 				break;
+			case 'year1':
+				payload = { year1: newVal };
+				break;
+			case 'year2':
+				payload = { year2: newVal };
+				break;
+			case 'year3':
+				payload = { year3: newVal };
+				break;
+			case 'year4':
+				payload = { year4: newVal };
+				break;
+			case 'pedidosAnulacao':
+				payload = { pedidosAnulacao: newVal };
+				break;
+			case 'totalAvailableVacancies':
+				payload = { totalAvailableVacancies: newVal };
+				break;
 			default:
 				return;
 		}
@@ -773,16 +797,22 @@
 		const reingressoFields = ['reingressoVagas', 'reingressoCandidatos', 'reingressoAno1', 'reingressoAno2', 'reingressoAno3', 'reingressoAno4', 'mudancaVagas', 'mudancaCandidatos'];
 		const concursosFields = ['over23Vagas', 'over23Candidatos', 'over23Colocados', 'over23Matriculados', 'cetVagas', 'cetCandidatos', 'cetColocados', 'cetMatriculados', 'ctespVagas', 'ctespCandidatos', 'ctespColocados', 'ctespMatriculados', 'otherHigherVagas', 'otherHigherCandidatos', 'otherHigherColocados', 'otherHigherMatriculados', 'dualCertVagas', 'dualCertCandidatos', 'dualCertColocados', 'dualCertMatriculados'];
 		const regimesFields = ['regimesEspVagas', 'regimesEspCandidatos', 'regimesEspMatriculados', 'internationalVagas', 'internationalCandidatos', 'internationalMatriculados'];
+		const matriculasAnoFields = ['year1', 'year2', 'year3', 'year4'];
+		const totaisOverridesFields = ['pedidosAnulacao', 'totalAvailableVacancies'];
 
 		let endpoint;
 		if (reingressoFields.includes(inlineEditField)) {
-			endpoint = `/api/vagas/reingresso-mudanca/${r.id}`;
+			endpoint = `/ep/api/vagas/reingresso-mudanca/${r.id}`;
 		} else if (concursosFields.includes(inlineEditField)) {
-			endpoint = `/api/vagas/concursos/${r.id}`;
+			endpoint = `/ep/api/vagas/concursos/${r.id}`;
 		} else if (regimesFields.includes(inlineEditField)) {
-			endpoint = `/api/vagas/regimes-esp-internacionais/${r.id}`;
+			endpoint = `/ep/api/vagas/regimes-esp-internacionais/${r.id}`;
+		} else if (matriculasAnoFields.includes(inlineEditField)) {
+			endpoint = `/ep/api/vagas/matriculas-ano/${r.id}`;
+		} else if (totaisOverridesFields.includes(inlineEditField)) {
+			endpoint = `/ep/api/vagas/totais-overrides/${r.id}`;
 		} else {
-			endpoint = `/api/vagas/curso/${r.id}`;
+			endpoint = `/ep/api/vagas/curso/${r.id}`;
 		}
 
 		const res = await fetch(endpoint, {
@@ -850,7 +880,7 @@
 					sobrasPos3F: Number(editForm.sobrasPos3F ?? 0) || 0
 				};
 
-				const res = await fetch(`/api/vagas/curso/${editingRow.id}`, {
+				const res = await fetch(`/ep/api/vagas/curso/${editingRow.id}`, {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(payload)
@@ -886,7 +916,7 @@
 					mudancaColocadosMatriculados: Number(editForm.mudancaColocadosMatriculados) || 0
 				};
 
-				const res = await fetch(`/api/vagas/reingresso-mudanca/${editingRow.id}`, {
+				const res = await fetch(`/ep/api/vagas/reingresso-mudanca/${editingRow.id}`, {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(payload)
@@ -936,7 +966,7 @@
 					dualCertMatriculados: Number(editForm.dualCertMatriculados) || 0
 				};
 
-				const res = await fetch(`/api/vagas/concursos/${editingRow.id}`, {
+				const res = await fetch(`/ep/api/vagas/concursos/${editingRow.id}`, {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(payload)
@@ -969,7 +999,7 @@
 					internationalMatriculados: Number(editForm.internationalMatriculados) || 0
 				};
 
-				const res = await fetch(`/api/vagas/regimes-esp-internacionais/${editingRow.id}`, {
+				const res = await fetch(`/ep/api/vagas/regimes-esp-internacionais/${editingRow.id}`, {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(payload)
@@ -1020,7 +1050,7 @@
 		criandoNovaTabela = true;
 
 		try {
-			const res = await fetch('/api/vagas/novo-ano', { method: 'POST' });
+			const res = await fetch('/ep/api/vagas/novo-ano', { method: 'POST' });
 			if (res.ok) {
 				await invalidateAll();
 			}
@@ -1383,7 +1413,7 @@
 					modalConfirmNovoAno = true;
 
 					try {
-						const res = await fetch('/api/vagas/novo-ano', { method: 'GET' });
+						const res = await fetch('/ep/api/vagas/novo-ano', { method: 'GET' });
 						if (res.ok) {
 							const data = await res.json();
 							const ano = data?.ano;
@@ -2945,13 +2975,167 @@
 										{(row.colocados1F ?? 0) + (row.colocados2F ?? 0) + (row.colocados3F ?? 0)}
 									</td>
 									<td class="formula-cell">{row.totalMatriculados}</td>
-									<td>{row.pedidosAnulacao}</td>
-									<td>{row.totalAvailableVacancies}</td>
-									<td>{row.diffVagasMatAntes3F}</td>
-									<td>{row.year1}</td>
-									<td>{row.year2}</td>
-									<td>{row.year3}</td>
-									<td>{row.year4}</td>
+									<td ondblclick={() => beginInlineEdit(row, 'pedidosAnulacao')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'pedidosAnulacao'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.pedidosAnulacao}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'totalAvailableVacancies')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'totalAvailableVacancies'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.totalAvailableVacancies}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'diffVagasMatAntes3F')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'diffVagasMatAntes3F'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.diffVagasMatAntes3F}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'year1')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'year1'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.year1}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'year2')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'year2'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.year2}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'year3')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'year3'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.year3}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'year4')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'year4'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.year4}
+										{/if}
+									</td>
 									<td class="formula-cell">{row.totalMatriculatedPerCourse}</td>
 								{:else}
 									<td>{row.vagas1F}</td>

@@ -1,29 +1,9 @@
 <script>
-	// @ts-nocheck — Chart.js via CDN em window.Chart
+	// @ts-nocheck
 	import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 	import { pageTitle } from '$lib/runes/pageTitle.rune.svelte';
 	import Breadcrum from '$lib/components/Breadcrum.svelte';
 	import { TABLE_TYPES, METRIC_PRINCIPAIS } from './compareTableConfig.js';
-
-	/** Tipos clássicos apenas: linhas e barras verticais (alternados pelos 8 indicadores). */
-	const PANEL_CHART_TYPES = /** @type {const} */ ([
-		'line',
-		'bar',
-		'line',
-		'bar',
-		'line',
-		'bar',
-		'line',
-		'bar'
-	]);
-
-	const CHART_PALETTE = {
-		fill: ['rgba(13, 110, 253, 0.75)', 'rgba(25, 135, 84, 0.75)', 'rgba(111, 66, 193, 0.75)'],
-		stroke: ['rgb(13, 110, 253)', 'rgb(25, 135, 84)', 'rgb(111, 66, 193)']
-	};
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { get } from 'svelte/store';
 
 	/** @type {{ data: import('./$types').PageData }} */
 	let { data } = $props();
@@ -81,23 +61,6 @@
 		}
 		return [...s].sort();
 	});
-
-	/** Sincronizado com `?vista=graficos` na URL (F5 mantém a vista). */
-	let viewMode = $derived(
-		$page.url.searchParams.get('vista') === 'graficos' ? 'graficos' : 'dados'
-	);
-
-	function setCompararView(/** @type {'dados' | 'graficos'} */ mode) {
-		const p = get(page);
-		const u = new URL(p.url.href);
-		if (mode === 'graficos') {
-			u.searchParams.set('vista', 'graficos');
-		} else {
-			u.searchParams.delete('vista');
-		}
-		const target = `${u.pathname}${u.search}${u.hash}`;
-		void goto(target, { replaceState: true, noScroll: true, keepFocus: true });
-	}
 
 	/** Chave do campo a comparar (uma métrica — A, B, C + Δ₁ = B−A + Δ₂ = C−B) */
 	let metricKey = $state('totalCandidatosCna');
@@ -203,55 +166,6 @@
 		if (v == null || v === '') return 0;
 		const n = Number(v);
 		return Number.isFinite(n) ? n : 0;
-	}
-
-	/**
-	 * Totais agregados A/B/C para uma métrica (soma ou média em % ocupação).
-	 * @param {Array<{ rowA?: Linha, rowB?: Linha, rowC?: Linha }>} pairs
-	 * @param {string} key
-	 */
-	function aggregateTotalsABC(pairs, key) {
-		if (key === 'percOcupacaoCna') {
-			let sA = 0,
-				cA = 0,
-				sB = 0,
-				cB = 0,
-				sC = 0,
-				cC = 0;
-			for (const p of pairs) {
-				if (p.rowA) {
-					const v = num(p.rowA, key);
-					if (v != null) {
-						sA += v;
-						cA++;
-					}
-				}
-				if (p.rowB) {
-					const v = num(p.rowB, key);
-					if (v != null) {
-						sB += v;
-						cB++;
-					}
-				}
-				if (p.rowC) {
-					const v = num(p.rowC, key);
-					if (v != null) {
-						sC += v;
-						cC++;
-					}
-				}
-			}
-			return {
-				vA: cA ? Math.round((sA / cA) * 10) / 10 : 0,
-				vB: cB ? Math.round((sB / cB) * 10) / 10 : 0,
-				vC: cC ? Math.round((sC / cC) * 10) / 10 : 0
-			};
-		}
-		return {
-			vA: pairs.reduce((s, p) => s + (num(p.rowA, key) ?? 0), 0),
-			vB: pairs.reduce((s, p) => s + (num(p.rowB, key) ?? 0), 0),
-			vC: pairs.reduce((s, p) => s + (num(p.rowC, key) ?? 0), 0)
-		};
 	}
 
 	/** @param {number | null} v @param {string} key */
@@ -401,149 +315,6 @@
 		return Math.min((pageIndex + 1) * effectivePageSize, joinedSorted.length);
 	});
 
-	let chartYearLabels = $derived([anoA || 'Ano A', anoB || 'Ano B', anoC || 'Ano C']);
-
-	/** Um conjunto vA/vB/vC por indicador principal (para grelha de gráficos). */
-	let totalsByMetric = $derived.by(() => {
-		const labels = chartYearLabels;
-		return METRIC_PRINCIPAIS.map((m, i) => {
-			const t = aggregateTotalsABC(joinedFiltered, m.key);
-			const chartType = PANEL_CHART_TYPES[i] ?? 'line';
-			return {
-				key: m.key,
-				label: m.label,
-				vA: t.vA,
-				vB: t.vB,
-				vC: t.vC,
-				labels,
-				data: [t.vA, t.vB, t.vC],
-				chartType
-			};
-		});
-	});
-
-	/**
-	 * Painel de gráfico (vários tipos Chart.js 2).
-	 * @param {HTMLCanvasElement} node
-	 * @param {{ labels: string[], data: number[], datasetLabel: string, chartType?: 'line' | 'bar' } | null} payload
-	 */
-	function cmpPanelChart(node, payload) {
-		let chart = null;
-
-		function tooltipLabel(tooltipItem, data) {
-			const ds = data.datasets[tooltipItem.datasetIndex];
-			const v = ds.data[tooltipItem.index];
-			return `${ds.label}: ${v}`;
-		}
-
-		function render(p) {
-			if (chart) {
-				chart.destroy();
-				chart = null;
-			}
-			if (!p || typeof window === 'undefined' || !window.Chart) return;
-			const ctx = node.getContext('2d');
-			if (!ctx) return;
-
-			const kind = p.chartType === 'bar' ? 'bar' : 'line';
-			const baseTooltip = {
-				callbacks: {
-					label: tooltipLabel
-				}
-			};
-
-			/** @type {any} */
-			let config;
-
-			if (kind === 'bar') {
-				config = {
-					type: 'bar',
-					data: {
-						labels: p.labels,
-						datasets: [
-							{
-								label: p.datasetLabel,
-								data: p.data,
-								backgroundColor: CHART_PALETTE.fill,
-								borderColor: CHART_PALETTE.stroke,
-								borderWidth: 1
-							}
-						]
-					},
-					options: {
-						responsive: true,
-						maintainAspectRatio: false,
-						legend: { display: false },
-						scales: {
-							yAxes: [
-								{
-									ticks: { beginAtZero: true, fontSize: 11 },
-									gridLines: { color: 'rgba(0,0,0,0.07)' }
-								}
-							],
-							xAxes: [{ ticks: { fontSize: 11 }, gridLines: { display: false } }]
-						},
-						tooltips: baseTooltip
-					}
-				};
-			} else {
-				config = {
-					type: 'line',
-					data: {
-						labels: p.labels,
-						datasets: [
-							{
-								label: p.datasetLabel,
-								data: p.data,
-								borderColor: CHART_PALETTE.stroke[0],
-								backgroundColor: 'rgba(13, 110, 253, 0.1)',
-								pointBackgroundColor: '#fff',
-								pointBorderColor: CHART_PALETTE.stroke[0],
-								pointBorderWidth: 2,
-								pointRadius: 6,
-								fill: true,
-								lineTension: 0.25
-							}
-						]
-					},
-					options: {
-						responsive: true,
-						maintainAspectRatio: false,
-						legend: { display: false },
-						scales: {
-							yAxes: [
-								{
-									ticks: { beginAtZero: true, fontSize: 11 },
-									gridLines: { color: 'rgba(0,0,0,0.07)' }
-								}
-							],
-							xAxes: [
-								{
-									ticks: { fontSize: 11, maxRotation: 40, minRotation: 0 },
-									gridLines: { display: false }
-								}
-							]
-						},
-						tooltips: baseTooltip
-					}
-				};
-			}
-
-			chart = new window.Chart(ctx, config);
-		}
-		render(payload);
-		return {
-			update(p) {
-				render(p);
-			},
-			destroy() {
-				if (chart) {
-					chart.destroy();
-					chart = null;
-				}
-			}
-		};
-	}
 </script>
 
 <Breadcrum modulo="Proposta de Vagas" objeto="Comparar anos" />
@@ -612,24 +383,6 @@
 					}}
 				>
 					<i class="fa fa-search" aria-hidden="true"></i>
-				</button>
-			</div>
-		</div>
-		<div class="col-12 col-md-3 d-flex align-items-end justify-content-md-end">
-			<div class="btn-group" role="group" aria-label="Modo">
-				<button
-					type="button"
-					class="btn btn-sm {viewMode === 'dados' ? 'btn-primary' : 'btn-outline-primary'}"
-					onclick={() => setCompararView('dados')}
-				>
-					Tabela
-				</button>
-				<button
-					type="button"
-					class="btn btn-sm {viewMode === 'graficos' ? 'btn-primary' : 'btn-outline-primary'}"
-					onclick={() => setCompararView('graficos')}
-				>
-					Gráfico
 				</button>
 			</div>
 		</div>
@@ -716,151 +469,114 @@
 	{:else}
 		<div class="card mb-3 cmp-toolbar-card">
 			<div class="card-body py-3 cmp-toolbar-inner">
-				{#if viewMode === 'dados'}
-					<div class="cmp-toolbar-flex">
-						<div class="cmp-page-size-block">
-							<label class="form-label cmp-toolbar-label mb-1" for="cmp-page-size">Por página</label>
-							<select
-								id="cmp-page-size"
-								class="form-control form-control-sm cmp-toolbar-select cmp-page-size-select"
-								value={String(pageSize)}
-								onchange={(e) => {
-									pageSize = Number(e.currentTarget.value);
-									pageIndex = 0;
-								}}
-							>
-								<option value="25">25</option>
-								<option value="50">50</option>
-								<option value="100">100</option>
-								<option value="200">200</option>
-								<option value="0">Todos</option>
-							</select>
-						</div>
-						<div class="cmp-pager-block">
-							<span class="cmp-pager-meta">
-								<strong>{joinedSorted.length}</strong> curso(s)
-								{#if joinedSorted.length > 0 && pageSize !== 0}
-									<span class="cmp-pager-sep">·</span>
-									<span class="cmp-pager-range">{rangeStart}–{rangeEnd}</span>
-									<span class="cmp-pager-sep">·</span>
-									pág. <strong>{pageIndex + 1}</strong>/<strong>{totalPages}</strong>
-								{/if}
-							</span>
-							{#if pageSize !== 0 && joinedSorted.length > 0}
-								<div class="btn-group btn-group-sm cmp-pager-btns">
-									<button type="button" class="btn btn-outline-primary" disabled={pageIndex <= 0} onclick={prevPage}>Anterior</button>
-									<button
-										type="button"
-										class="btn btn-outline-primary"
-										disabled={pageIndex >= totalPages - 1}
-										onclick={nextPage}
-									>
-										Seguinte
-									</button>
-								</div>
-							{/if}
-						</div>
+				<div class="cmp-toolbar-flex">
+					<div class="cmp-page-size-block">
+						<label class="form-label cmp-toolbar-label mb-1" for="cmp-page-size">Por página</label>
+						<select
+							id="cmp-page-size"
+							class="form-control form-control-sm cmp-toolbar-select cmp-page-size-select"
+							value={String(pageSize)}
+							onchange={(e) => {
+								pageSize = Number(e.currentTarget.value);
+								pageIndex = 0;
+							}}
+						>
+							<option value="25">25</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+							<option value="200">200</option>
+							<option value="0">Todos</option>
+						</select>
 					</div>
-				{:else}
-					<p class="small text-muted mb-0 cmp-toolbar-grafico-msg">
-						Oito gráficos de linha <strong>lado a lado</strong> (grelha responsiva). Totais: soma ou média (% ocupação) sobre
-						<strong>{joinedFiltered.length}</strong> curso(s) do filtro. Clica no título de um painel para sincronizar com os chips.
-					</p>
-				{/if}
+					<div class="cmp-pager-block">
+						<span class="cmp-pager-meta">
+							<strong>{joinedSorted.length}</strong> curso(s)
+							{#if joinedSorted.length > 0 && pageSize !== 0}
+								<span class="cmp-pager-sep">·</span>
+								<span class="cmp-pager-range">{rangeStart}–{rangeEnd}</span>
+								<span class="cmp-pager-sep">·</span>
+								pág. <strong>{pageIndex + 1}</strong>/<strong>{totalPages}</strong>
+							{/if}
+						</span>
+						{#if pageSize !== 0 && joinedSorted.length > 0}
+							<div class="btn-group btn-group-sm cmp-pager-btns">
+								<button type="button" class="btn btn-outline-primary" disabled={pageIndex <= 0} onclick={prevPage}>Anterior</button>
+								<button
+									type="button"
+									class="btn btn-outline-primary"
+									disabled={pageIndex >= totalPages - 1}
+									onclick={nextPage}
+								>
+									Seguinte
+								</button>
+							</div>
+						{/if}
+					</div>
+				</div>
 			</div>
 		</div>
 
-		{#if viewMode === 'dados'}
-			{#if joinedFiltered.length === 0}
-				<p class="text-muted">Nenhum curso com estes critérios.</p>
-			{:else}
-				<div class="table-wrapper">
-					<div class="cmp-scroll-wrap">
-						<table class="gestao-table cmp-simple-table">
-							<thead>
-								<tr>
-									<th class="header-main" colspan="8">
-										{metricMeta.label} · Δ₁ = ({anoB}) − ({anoA}) · Δ₂ = ({anoC}) − ({anoB})
-									</th>
-								</tr>
-								<tr>
-									<th class="header-col text-left">Escola</th>
-									<th class="header-col text-left">Curso</th>
-									<th class="header-col">Cód.</th>
-									<th class="header-col">{anoA}</th>
-									<th class="header-col">{anoB}</th>
-									<th class="header-col">{anoC}</th>
-									<th class="header-col">Δ₁</th>
-									<th class="header-col">Δ₂</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#if joinedPage.length === 0}
-									<tr>
-										<td colspan="8" class="text-muted">Nada nesta página.</td>
-									</tr>
-								{:else}
-									{#each joinedPage as pair, idx (pair.key)}
-										{@const va = num(pair.rowA, metricKey)}
-										{@const vb = num(pair.rowB, metricKey)}
-										{@const vc = num(pair.rowC, metricKey)}
-										{@const d1 = deltaBA(pair, metricKey)}
-										{@const d2 = deltaCB(pair, metricKey)}
-										<tr class={idx % 2 === 0 ? 'row-even' : 'row-odd'}>
-											<td class="text-left td-wrap">{pair.displaySchool}</td>
-											<td class="text-left td-wrap">{pair.displayCourse}</td>
-											<td class="text-muted small">{displayCode(pair.displayCode)}</td>
-											<td>{va === null ? '—' : formatCell(va, metricKey)}</td>
-											<td>{vb === null ? '—' : formatCell(vb, metricKey)}</td>
-											<td>{vc === null ? '—' : formatCell(vc, metricKey)}</td>
-											<td
-												class="td-delta"
-												class:delta-pos={d1 != null && d1 > 0}
-												class:delta-neg={d1 != null && d1 < 0}
-											>
-												{d1 === null ? '—' : formatCell(d1, metricKey)}
-											</td>
-											<td
-												class="td-delta"
-												class:delta-pos={d2 != null && d2 > 0}
-												class:delta-neg={d2 != null && d2 < 0}
-											>
-												{d2 === null ? '—' : formatCell(d2, metricKey)}
-											</td>
-										</tr>
-									{/each}
-								{/if}
-							</tbody>
-						</table>
-					</div>
-				</div>
-			{/if}
+		{#if joinedFiltered.length === 0}
+			<p class="text-muted">Nenhum curso com estes critérios.</p>
 		{:else}
-			<div class="cmp-charts-dashboard">
-				<div class="cmp-charts-sidebyside">
-					{#each totalsByMetric as tm (tm.key)}
-						<div class="cmp-chart-panel" class:cmp-chart-panel--active={tm.key === metricKey}>
-							<button
-								type="button"
-								class="cmp-chart-panel-head"
-								onclick={() => (metricKey = tm.key)}
-								aria-pressed={tm.key === metricKey}
-							>
-								{tm.label}
-							</button>
-							<div class="cmp-chart-panel-canvas">
-								<canvas
-									use:cmpPanelChart={{
-										labels: tm.labels,
-										data: tm.data,
-										datasetLabel: tm.label,
-										chartType: tm.chartType
-									}}
-									aria-label={`${tm.label}: gráfico ${tm.chartType}, anos ${tm.labels.join(', ')}`}
-								></canvas>
-							</div>
-						</div>
-					{/each}
+			<div class="table-wrapper">
+				<div class="cmp-scroll-wrap">
+					<table class="gestao-table cmp-simple-table">
+						<thead>
+							<tr>
+								<th class="header-main" colspan="8">
+									{metricMeta.label} · Δ₁ = ({anoB}) − ({anoA}) · Δ₂ = ({anoC}) − ({anoB})
+								</th>
+							</tr>
+							<tr>
+								<th class="header-col text-left">Escola</th>
+								<th class="header-col text-left">Curso</th>
+								<th class="header-col">Cód.</th>
+								<th class="header-col">{anoA}</th>
+								<th class="header-col">{anoB}</th>
+								<th class="header-col">{anoC}</th>
+								<th class="header-col">Δ₁</th>
+								<th class="header-col">Δ₂</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#if joinedPage.length === 0}
+								<tr>
+									<td colspan="8" class="text-muted">Nada nesta página.</td>
+								</tr>
+							{:else}
+								{#each joinedPage as pair, idx (pair.key)}
+									{@const va = num(pair.rowA, metricKey)}
+									{@const vb = num(pair.rowB, metricKey)}
+									{@const vc = num(pair.rowC, metricKey)}
+									{@const d1 = deltaBA(pair, metricKey)}
+									{@const d2 = deltaCB(pair, metricKey)}
+									<tr class={idx % 2 === 0 ? 'row-even' : 'row-odd'}>
+										<td class="text-left td-wrap">{pair.displaySchool}</td>
+										<td class="text-left td-wrap">{pair.displayCourse}</td>
+										<td class="text-muted small">{displayCode(pair.displayCode)}</td>
+										<td>{va === null ? '—' : formatCell(va, metricKey)}</td>
+										<td>{vb === null ? '—' : formatCell(vb, metricKey)}</td>
+										<td>{vc === null ? '—' : formatCell(vc, metricKey)}</td>
+										<td
+											class="td-delta"
+											class:delta-pos={d1 != null && d1 > 0}
+											class:delta-neg={d1 != null && d1 < 0}
+										>
+											{d1 === null ? '—' : formatCell(d1, metricKey)}
+										</td>
+										<td
+											class="td-delta"
+											class:delta-pos={d2 != null && d2 > 0}
+											class:delta-neg={d2 != null && d2 < 0}
+										>
+											{d2 === null ? '—' : formatCell(d2, metricKey)}
+										</td>
+									</tr>
+								{/each}
+							{/if}
+						</tbody>
+					</table>
 				</div>
 			</div>
 		{/if}
@@ -1053,9 +769,6 @@
 		border-radius: 4px;
 		font-weight: 600;
 	}
-	.cmp-toolbar-grafico-msg {
-		line-height: 1.45;
-	}
 	.cmp-toolbar-card select.cmp-toolbar-select.form-control-sm {
 		border-radius: 4px;
 		min-height: 36px;
@@ -1130,69 +843,5 @@
 	}
 	.delta-neg {
 		color: #c0392b;
-	}
-	.cmp-charts-dashboard {
-		width: 100%;
-	}
-	.cmp-charts-sidebyside {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 16px;
-		align-items: stretch;
-	}
-	@media (max-width: 1199.98px) {
-		.cmp-charts-sidebyside {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-	@media (max-width: 575.98px) {
-		.cmp-charts-sidebyside {
-			grid-template-columns: 1fr;
-		}
-	}
-	.cmp-chart-panel {
-		border: 1px solid #dde3f0;
-		border-radius: 6px;
-		background: #fff;
-		box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		overflow: hidden;
-		transition:
-			border-color 0.15s ease,
-			box-shadow 0.15s ease;
-	}
-	.cmp-chart-panel--active {
-		border-color: #0d6efd;
-		box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.22);
-	}
-	.cmp-chart-panel-head {
-		display: block;
-		width: 100%;
-		text-align: left;
-		border: none;
-		border-bottom: 1px solid #e8ecf4;
-		background: #f8f9ff;
-		font-size: 12px;
-		font-weight: 600;
-		line-height: 1.35;
-		padding: 10px 12px;
-		cursor: pointer;
-		color: #1e3a5f;
-	}
-	.cmp-chart-panel-head:hover {
-		background: #eef2ff;
-	}
-	.cmp-chart-panel-head:focus {
-		outline: none;
-		box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.35);
-	}
-	.cmp-chart-panel-canvas {
-		position: relative;
-		flex: 1;
-		min-height: 280px;
-		height: 280px;
-		padding: 10px 12px 14px;
 	}
 </style>
