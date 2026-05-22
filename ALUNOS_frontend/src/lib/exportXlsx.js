@@ -138,11 +138,13 @@ export function exportToXlsx(data, anoLabel) {
 		row[17] = r.vagas3F ?? 0; row[18] = r.vagasEfetivas3F ?? 0; row[19] = r.candidatos3F ?? 0;
 		row[20] = r.candidatos1Opcao3F ?? 0; row[21] = r.colocados3F ?? 0; row[22] = r.classificacaoUltimo3F ?? 0;
 		row[23] = r.totalCandidatosCna ?? 0;
-		const totalCol = Number(r.colocados1F ?? 0) + Number(r.colocados2F ?? 0) + Number(r.colocados3F ?? 0);
-		row[24] = totalCol;
+		row[24] =
+			r.totalColocadosCna ??
+			Number(r.colocados1F ?? 0) + Number(r.colocados2F ?? 0) + Number(r.colocados3F ?? 0);
 		row[25] = r.matriculados1F ?? 0; row[26] = r.matriculados2F ?? 0; row[27] = r.matriculados3F ?? 0;
-		const totalMat = Number(r.matriculados1F ?? 0) + Number(r.matriculados2F ?? 0) + Number(r.matriculados3F ?? 0);
-		row[28] = totalMat;
+		row[28] =
+			r.totalMatriculadosCna ??
+			Number(r.matriculados1F ?? 0) + Number(r.matriculados2F ?? 0) + Number(r.matriculados3F ?? 0);
 		row[29] = r.diffVagasMatAntes3F ?? 0;
 		row[30] = r.percOcupacaoCna ?? 0;
 		row[31] = r.sobrasPos3F ?? 0;

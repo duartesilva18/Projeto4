@@ -1400,6 +1400,8 @@ export class VagasService {
 
         // Totals – baseados na view CNA
         totalCandidatosCna: row.total_candidatos_cna || 0,
+        totalColocadosCna: row.total_colocados_cna || 0,
+        totalMatriculadosCna: row.total_matriculados_cna || 0,
         totalColocados: totalColocadosConcursos,
         totalMatriculados: totalMatriculados,
         pedidosAnulacao: row.pedidos_anulacao ?? 0,

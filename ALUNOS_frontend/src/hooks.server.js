@@ -75,7 +75,14 @@ async function loginÑaAPI(){
         // obter permissões utilizador
         
     } catch (e) {
-        error(500, { message: 'Problema no acesso à API! Provavelmente estão a ser realizadas atualizações.' });
+        console.error('[login API] fetch falhou — confirme que ALUNOS_webservices está a correr (porta 3000):', e);
+        error(
+            503,
+            {
+                message:
+                    'API indisponível (porta 3000). Inicie o backend: cd ALUNOS_webservices && npm run dev'
+            }
+        );
     }
 
     return key;
