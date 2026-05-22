@@ -10,9 +10,8 @@ export class VagasService {
    * Atualiza dados CNA "atómicos" (vagas/candidatos/colocados) para que as VIEWs
    * recalculadas (totais/diferença/percentagens) se reflitam no frontend.
    *
-   * Nota: o frontend trata "matriculados" como dependente do Excel; como o modal
-   * não edita "matriculados" diretamente, aqui assumimos (para manter consistência
-   * com o dataset) que matriculados = colocados.
+   * Colocados e matriculados são colunas distintas em estatistica_acesso.
+   * Cada campo do body atualiza apenas a coluna correspondente (UPDATE parcial).
    */
   async atualizarCnaCurso(
     id: string,
@@ -20,22 +19,28 @@ export class VagasService {
       vagas1F?: number;
       candidatos1F?: number;
       colocados1F?: number;
+      matriculados1F?: number;
       candidatos1Opcao1F?: number;
       classificacaoUltimo1F?: number;
       mediaEntrada1F?: number;
       vagas2F?: number;
       candidatos2F?: number;
       colocados2F?: number;
+      matriculados2F?: number;
       candidatos1Opcao2F?: number;
       classificacaoUltimo2F?: number;
       vagas3F?: number;
+      vagasEfetivas3F?: number;
       candidatos3F?: number;
       colocados3F?: number;
+      matriculados3F?: number;
       candidatos1Opcao3F?: number;
       classificacaoUltimo3F?: number;
       sobrasPos3F?: number;
       diffVagasMatAntes3F?: number;
       percOcupacaoCna?: number;
+      transfCnaOutrasIESup?: number;
+      transfCnaIpvc?: number;
     }
   ) {
     // id gerado no frontend: `${id_curso_oferta}-${ano_colocacao}`
@@ -63,6 +68,7 @@ export class VagasService {
     const v1 = toInt(body.vagas1F);
     const c1 = toInt(body.candidatos1F);
     const l1 = toInt(body.colocados1F);
+    const m1 = toInt(body.matriculados1F);
     const opc1 = toInt(body.candidatos1Opcao1F);
     const class1 = toNullableNumber(body.classificacaoUltimo1F);
     const media1 = toNullableNumber(body.mediaEntrada1F);
@@ -70,18 +76,23 @@ export class VagasService {
     const v2 = toInt(body.vagas2F);
     const c2 = toInt(body.candidatos2F);
     const l2 = toInt(body.colocados2F);
+    const m2 = toInt(body.matriculados2F);
     const opc2 = toInt(body.candidatos1Opcao2F);
     const class2 = toNullableNumber(body.classificacaoUltimo2F);
 
     const v3 = toInt(body.vagas3F);
+    const v3Efetivas = toInt(body.vagasEfetivas3F);
     const c3 = toInt(body.candidatos3F);
     const l3 = toInt(body.colocados3F);
+    const m3 = toInt(body.matriculados3F);
     const opc3 = toInt(body.candidatos1Opcao3F);
     const class3 = toNullableNumber(body.classificacaoUltimo3F);
 
     const sobrasPos3F = toInt(body.sobrasPos3F);
     const diffVagasMatAntes3F = toInt(body.diffVagasMatAntes3F);
     const percOcupacaoCna = toNullableNumber(body.percOcupacaoCna);
+    const transfCnaOutrasIESup = toInt(body.transfCnaOutrasIESup);
+    const transfCnaIpvc = toInt(body.transfCnaIpvc);
 
     // Se nada veio, não fazemos update.
     if (
@@ -89,22 +100,28 @@ export class VagasService {
         v1,
         c1,
         l1,
+        m1,
         opc1,
         class1,
         media1,
         v2,
         c2,
         l2,
+        m2,
         opc2,
         class2,
         v3,
+        v3Efetivas,
         c3,
         l3,
+        m3,
         opc3,
         class3,
         sobrasPos3F,
         diffVagasMatAntes3F,
-        percOcupacaoCna
+        percOcupacaoCna,
+        transfCnaOutrasIESup,
+        transfCnaIpvc
       ].every((x) => x === undefined)
     ) {
       return { ok: true, updated: 0 };
@@ -127,7 +144,6 @@ export class VagasService {
             candidatos_primeira_op = ${opc1 ?? null},
             classificacao_ultimo = ${class1 ?? null},
             colocados = ${l1 ?? null},
-            matriculados = ${l1 ?? null},
             media_entrada = ${media1 ?? null}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
@@ -139,10 +155,39 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, ${v1 ?? null}, ${c1 ?? null}, ${opc1 ?? null}, ${l1 ?? null}, ${l1 ?? null}, ${class1 ?? null}, ${media1 ?? null});
+          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, ${v1 ?? null}, ${c1 ?? null}, ${opc1 ?? null}, ${l1 ?? null}, ${m1 ?? l1 ?? 0}, ${class1 ?? null}, ${media1 ?? null});
       END
     `
       : Prisma.empty;
+
+    const fase1MatricFrag =
+      m1 !== undefined
+        ? Prisma.sql`
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.estatistica_acesso
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND id_via_acesso = @id_via_cna
+          AND id_fase = @id_fase_1
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.estatistica_acesso
+        SET matriculados = ${m1}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND id_via_acesso = @id_via_cna
+          AND id_fase = @id_fase_1
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.estatistica_acesso
+          (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
+        VALUES
+          (@id_curso_oferta, @id_via_cna, @id_fase_1, @ano, 0, 0, 0, 0, ${m1}, NULL, NULL);
+      END
+    `
+        : Prisma.empty;
 
     const fase2Frag = (v2 !== undefined || c2 !== undefined || l2 !== undefined || opc2 !== undefined || class2 !== undefined)
       ? Prisma.sql`
@@ -160,7 +205,6 @@ export class VagasService {
             candidatos = ${c2 ?? null},
             candidatos_primeira_op = ${opc2 ?? null},
             colocados = ${l2 ?? null},
-            matriculados = ${l2 ?? null},
             classificacao_ultimo = ${class2 ?? null}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
@@ -172,10 +216,39 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, ${v2 ?? null}, ${c2 ?? null}, ${opc2 ?? null}, ${l2 ?? null}, ${l2 ?? null}, ${class2 ?? null}, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, ${v2 ?? null}, ${c2 ?? null}, ${opc2 ?? null}, ${l2 ?? null}, ${m2 ?? l2 ?? 0}, ${class2 ?? null}, NULL);
       END
     `
       : Prisma.empty;
+
+    const fase2MatricFrag =
+      m2 !== undefined
+        ? Prisma.sql`
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.estatistica_acesso
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND id_via_acesso = @id_via_cna
+          AND id_fase = @id_fase_2
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.estatistica_acesso
+        SET matriculados = ${m2}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND id_via_acesso = @id_via_cna
+          AND id_fase = @id_fase_2
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.estatistica_acesso
+          (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
+        VALUES
+          (@id_curso_oferta, @id_via_cna, @id_fase_2, @ano, 0, 0, 0, 0, ${m2}, NULL, NULL);
+      END
+    `
+        : Prisma.empty;
 
     const fase3Frag = (v3 !== undefined || c3 !== undefined || l3 !== undefined || opc3 !== undefined || class3 !== undefined)
       ? Prisma.sql`
@@ -193,7 +266,6 @@ export class VagasService {
             candidatos = ${c3 ?? null},
             candidatos_primeira_op = ${opc3 ?? null},
             colocados = ${l3 ?? null},
-            matriculados = ${l3 ?? null},
             classificacao_ultimo = ${class3 ?? null}
         WHERE id_curso_oferta = @id_curso_oferta
           AND id_via_acesso = @id_via_cna
@@ -205,7 +277,58 @@ export class VagasService {
         INSERT INTO vagas.estatistica_acesso
           (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
         VALUES
-          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, ${v3 ?? null}, ${c3 ?? null}, ${opc3 ?? null}, ${l3 ?? null}, ${l3 ?? null}, ${class3 ?? null}, NULL);
+          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, ${v3 ?? null}, ${c3 ?? null}, ${opc3 ?? null}, ${l3 ?? null}, ${m3 ?? l3 ?? 0}, ${class3 ?? null}, NULL);
+      END
+    `
+      : Prisma.empty;
+
+    const fase3MatricFrag =
+      m3 !== undefined
+        ? Prisma.sql`
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.estatistica_acesso
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND id_via_acesso = @id_via_cna
+          AND id_fase = @id_fase_3
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.estatistica_acesso
+        SET matriculados = ${m3}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND id_via_acesso = @id_via_cna
+          AND id_fase = @id_fase_3
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.estatistica_acesso
+          (id_curso_oferta, id_via_acesso, id_fase, ano, vagas, candidatos, candidatos_primeira_op, colocados, matriculados, classificacao_ultimo, media_entrada)
+        VALUES
+          (@id_curso_oferta, @id_via_cna, @id_fase_3, @ano, 0, 0, 0, 0, ${m3}, NULL, NULL);
+      END
+    `
+        : Prisma.empty;
+
+    const vagasEfetivasFrag = v3Efetivas !== undefined
+      ? Prisma.sql`
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.vagas_efetivas_3f
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+      )
+      BEGIN
+        UPDATE vagas.vagas_efetivas_3f
+        SET vagas_efetivas_3f = ${v3Efetivas}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano;
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.vagas_efetivas_3f (id_curso_oferta, ano, vagas_efetivas_3f)
+        VALUES (@id_curso_oferta, @ano, ${v3Efetivas});
       END
     `
       : Prisma.empty;
@@ -276,6 +399,34 @@ export class VagasService {
     `
       : Prisma.empty;
 
+    const movimentoCnaFrag = (tipo: 'TRANSF_OUT' | 'TRANSF_IN_IPVC', qty: number | undefined) =>
+      qty === undefined
+        ? Prisma.empty
+        : Prisma.sql`
+      IF EXISTS (
+        SELECT 1
+        FROM vagas.movimento_cna
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+          AND tipo_movimento = ${tipo}
+      )
+      BEGIN
+        UPDATE vagas.movimento_cna
+        SET quantidade = ${qty}
+        WHERE id_curso_oferta = @id_curso_oferta
+          AND ano = @ano
+          AND tipo_movimento = ${tipo};
+      END
+      ELSE
+      BEGIN
+        INSERT INTO vagas.movimento_cna (id_curso_oferta, ano, tipo_movimento, quantidade)
+        VALUES (@id_curso_oferta, @ano, ${tipo}, ${qty});
+      END
+    `;
+
+    const transfOutFrag = movimentoCnaFrag('TRANSF_OUT', transfCnaOutrasIESup);
+    const transfInFrag = movimentoCnaFrag('TRANSF_IN_IPVC', transfCnaIpvc);
+
     // Executar em sequência (transaction implícita por batch T-SQL)
     // Usamos UPDATE/INSERT por fase (idempotente) para evitar depender de MERGE.
     await this.prisma.$executeRaw`
@@ -289,12 +440,18 @@ export class VagasService {
 
       -- 1.ª fase
       ${fase1Frag}
+      ${fase1MatricFrag}
 
       -- 2.ª fase
       ${fase2Frag}
+      ${fase2MatricFrag}
 
       -- 3.ª fase
       ${fase3Frag}
+      ${fase3MatricFrag}
+
+      -- Vagas efetivas 3.ª fase (coluna Excel separada)
+      ${vagasEfetivasFrag}
 
       -- SOBRAS (inseridas manualmente)
       ${sobrasFrag}
@@ -302,8 +459,12 @@ export class VagasService {
       -- DIFERENÇA VAGAS/MAT (override manual)
       ${diffFrag}
 
-      -- TRANSF CNA p o IPVC (override manual)
+      -- % ocupação CNA (override manual)
       ${percFrag}
+
+      -- Transferências CNA (movimento_cna)
+      ${transfOutFrag}
+      ${transfInFrag}
     `;
 
     return { ok: true };
@@ -955,6 +1116,7 @@ export class VagasService {
          cna.matriculados_2f,
          cna.classificacao_ultimo_2f,
          cna.vagas_3f,
+         COALESCE(vef.vagas_efetivas_3f, 0) AS vagas_efetivas_3f,
          cna.candidatos_3f,
          cna.candidatos_1op_3f,
          cna.colocados_3f,
@@ -965,6 +1127,8 @@ export class VagasService {
          cna.total_matriculados_cna,
          COALESCE(dfo.diff_vagas_mat_antes_3f, cna.diferenca_vagas_mat_antes_3f) AS diferenca_vagas_mat_antes_3f,
          COALESCE(ipvc.perc_ocupacao_cna, cna.perc_ocupacao_cna) AS perc_ocupacao_cna,
+         COALESCE(mc_out.quantidade, 0) AS transf_cna_outras_iesup,
+         COALESCE(mc_in.quantidade, 0) AS transf_cna_ipvc,
          cna.matriculados_1ano,
          cna.matriculados_2ano,
          cna.matriculados_3ano,
@@ -1028,12 +1192,23 @@ export class VagasService {
        LEFT JOIN vagas.sobras_pos_3f sob
               ON sob.id_curso_oferta = cna.id_curso_oferta
              AND sob.ano = cna.ano_colocacao
+      LEFT JOIN vagas.vagas_efetivas_3f vef
+             ON vef.id_curso_oferta = cna.id_curso_oferta
+            AND vef.ano = cna.ano_colocacao
       LEFT JOIN vagas.diff_vagas_mat_antes_3f_override dfo
              ON dfo.id_curso_oferta = cna.id_curso_oferta
             AND dfo.ano = cna.ano_colocacao
       LEFT JOIN vagas.perc_ocupacao_cna_override ipvc
              ON ipvc.id_curso_oferta = cna.id_curso_oferta
             AND ipvc.ano = cna.ano_colocacao
+      LEFT JOIN vagas.movimento_cna mc_out
+             ON mc_out.id_curso_oferta = cna.id_curso_oferta
+            AND mc_out.ano = cna.ano_colocacao
+            AND mc_out.tipo_movimento = 'TRANSF_OUT'
+      LEFT JOIN vagas.movimento_cna mc_in
+             ON mc_in.id_curso_oferta = cna.id_curso_oferta
+            AND mc_in.ano = cna.ano_colocacao
+            AND mc_in.tipo_movimento = 'TRANSF_IN_IPVC'
       LEFT JOIN vagas.pedidos_anulacao_override pao
              ON pao.id_curso_oferta = cna.id_curso_oferta
             AND pao.ano = cna.ano_colocacao
@@ -1186,8 +1361,7 @@ export class VagasService {
         colocados3F: row.colocados_3f || 0,
         matriculados3F: row.matriculados_3f || 0,
         classificacaoUltimo3F: row.classificacao_ultimo_3f || 0,
-        // Por enquanto usamos as mesmas vagas da 3.ª fase como "vagas efetivas"
-        vagasEfetivas3F: row.vagas_3f || 0,
+        vagasEfetivas3F: row.vagas_efetivas_3f ?? 0,
 
         // Concursos Especiais
         over23Vagas: row.over23Vagas ?? 0,
@@ -1238,8 +1412,8 @@ export class VagasService {
         diffVagasMatAntes3F: row.diferenca_vagas_mat_antes_3f || 0,
         // Ocupação CNA (matriculados / vagas), vindo da view
         percOcupacaoCna: row.perc_ocupacao_cna || 0,
-        transfCnaOutrasIESup: 0,
-        transfCnaIpvc: 0,
+        transfCnaOutrasIESup: row.transf_cna_outras_iesup || 0,
+        transfCnaIpvc: row.transf_cna_ipvc || 0,
         sobrasPos3F: row.sobras_pos_3f || 0,
 
         // Reingresso + Mudança
@@ -1500,6 +1674,11 @@ export class VagasService {
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );
 
+      DELETE FROM vagas.vagas_efetivas_3f
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
       DELETE FROM vagas.diff_vagas_mat_antes_3f_override
       WHERE id_curso_oferta IN (
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
@@ -1554,6 +1733,11 @@ export class VagasService {
       END;
 
       DELETE FROM vagas.sobras_pos_3f
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      DELETE FROM vagas.vagas_efetivas_3f
       WHERE id_curso_oferta IN (
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );

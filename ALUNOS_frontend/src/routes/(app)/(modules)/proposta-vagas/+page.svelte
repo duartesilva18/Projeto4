@@ -127,6 +127,43 @@
 
 	/** @type {keyof typeof tabConfig | 'full'} */
 	let activeTab = $state(/** @type {keyof typeof tabConfig | 'full'} */ ('regime-nacional'));
+
+	/** Classes de layout da tabela por tab (densa vs equilibrada vs normal). */
+	function tableMainClass(tab) {
+		const parts = ['table-main'];
+		if (tab === 'regime-nacional' || tab === 'concursos') parts.push('table-dense');
+		if (
+			tab === 'regimes-esp-internacionais' ||
+			tab === 'sobras' ||
+			tab === 'reingresso-mudanca' ||
+			tab === 'totais'
+		) {
+			parts.push('table-balanced');
+		}
+		return parts.join(' ');
+	}
+
+	/** Nº real de colunas (evita colspan="100" que rebenta table-layout: fixed). */
+	function tableColspan(tab) {
+		switch (tab) {
+			case 'regimes-esp-internacionais':
+				return 8;
+			case 'sobras':
+				return 4;
+			case 'reingresso-mudanca':
+				return 12;
+			case 'totais':
+				return 12;
+			case 'concursos':
+				return 22;
+			case 'regime-nacional':
+				return 29;
+			case 'full':
+				return 72;
+			default:
+				return 10;
+		}
+	}
 	$effect(() => {
 		const tRaw = $page.url.searchParams.get('tab');
 		// "sobras" foi integrado na página do regime nacional; se alguém ainda usar a URL antiga,
@@ -470,7 +507,7 @@
 			const oldVal = (() => {
 				switch (inlineEditField) {
 					case 'vagasEfetivas3F':
-						return Number(r.vagasEfetivas3F ?? r.vagas3F ?? 0);
+						return Number(r.vagasEfetivas3F ?? 0);
 					case 'vagas1F':
 						return Number(r.vagas1F ?? 0);
 					case 'candidatos1F':
@@ -501,6 +538,10 @@
 						return Number(r.diffVagasMatAntes3F ?? 0);
 					case 'percOcupacaoCna':
 						return Number(r.percOcupacaoCna ?? 0);
+					case 'transfCnaOutrasIESup':
+						return Number(r.transfCnaOutrasIESup ?? 0);
+					case 'transfCnaIpvc':
+						return Number(r.transfCnaIpvc ?? 0);
 					case 'candidatos1Opcao1F':
 						return Number(r.candidatos1Opcao1F ?? 0);
 					case 'candidatos1Opcao2F':
@@ -589,9 +630,7 @@
 					payload = { vagas1F: r.vagas1F ?? 0, candidatos1F: r.candidatos1F ?? 0, colocados1F: newVal };
 					break;
 				case 'matriculados1F':
-					// O modal/VIEW tratam "matriculados" como dependente de "colocados".
-					// Por isso, ao editar Matric. 1.ªF, persistimos em "colocados1F".
-					payload = { vagas1F: r.vagas1F ?? 0, candidatos1F: r.candidatos1F ?? 0, colocados1F: newVal };
+					payload = { matriculados1F: newVal };
 					break;
 				case 'candidatos1Opcao1F':
 					payload = {
@@ -611,8 +650,7 @@
 					payload = { vagas2F: r.vagas2F ?? 0, candidatos2F: r.candidatos2F ?? 0, colocados2F: newVal };
 					break;
 				case 'matriculados2F':
-					// Persistimos em "colocados2F" (matriculados é dependente).
-					payload = { vagas2F: r.vagas2F ?? 0, candidatos2F: r.candidatos2F ?? 0, colocados2F: newVal };
+					payload = { matriculados2F: newVal };
 					break;
 				case 'candidatos1Opcao2F':
 					payload = {
@@ -626,8 +664,7 @@
 					payload = { vagas3F: newVal, candidatos3F: r.candidatos3F ?? 0, colocados3F: r.colocados3F ?? 0 };
 					break;
 				case 'vagasEfetivas3F':
-					// No teu backend atual, "vagasEfetivas3F" está mapeado para a mesma base de "vagas3F".
-					payload = { vagas3F: newVal, candidatos3F: r.candidatos3F ?? 0, colocados3F: r.colocados3F ?? 0 };
+					payload = { vagasEfetivas3F: newVal };
 					break;
 				case 'candidatos3F':
 					payload = { vagas3F: r.vagas3F ?? 0, candidatos3F: newVal, colocados3F: r.colocados3F ?? 0 };
@@ -636,8 +673,7 @@
 					payload = { vagas3F: r.vagas3F ?? 0, candidatos3F: r.candidatos3F ?? 0, colocados3F: newVal };
 					break;
 				case 'matriculados3F':
-					// Persistimos em "colocados3F" (matriculados é dependente).
-					payload = { vagas3F: r.vagas3F ?? 0, candidatos3F: r.candidatos3F ?? 0, colocados3F: newVal };
+					payload = { matriculados3F: newVal };
 					break;
 				case 'candidatos1Opcao3F':
 					payload = {
@@ -655,6 +691,12 @@
 					break;
 				case 'percOcupacaoCna':
 					payload = { percOcupacaoCna: newVal };
+					break;
+				case 'transfCnaOutrasIESup':
+					payload = { transfCnaOutrasIESup: newVal };
+					break;
+				case 'transfCnaIpvc':
+					payload = { transfCnaIpvc: newVal };
 					break;
 				case 'classificacaoUltimo1F':
 					payload = {
@@ -853,6 +895,13 @@
 			toastr.success(msg, 'SUCESSO', { timeOut: 5000, progressBar: true });
 		};
 
+		const showError = () => {
+			toastr.error('Não foi possível guardar. Verifique a ligação e tente novamente.', 'ERRO', {
+				timeOut: 8000,
+				progressBar: true
+			});
+		};
+
 		// Apenas persistimos quando estamos no modal do Regime Nacional (CNA).
 		// Os campos derivados (fórmulas) recalculam via VIEW no SQL quando a tabela voltar a ser carregada.
 		if (modalTab === 'regime-nacional') {
@@ -862,14 +911,18 @@
 					candidatos1F: Number(editForm.candidatos1F) || 0,
 					candidatos1Opcao1F: Number(editForm.candidatos1Opcao1F ?? 0) || 0,
 					colocados1F: Number(editForm.colocados1F) || 0,
+					matriculados1F: Number(editForm.matriculados1F ?? 0) || 0,
 					vagas2F: Number(editForm.vagas2F) || 0,
 					candidatos2F: Number(editForm.candidatos2F) || 0,
 					candidatos1Opcao2F: Number(editForm.candidatos1Opcao2F ?? 0) || 0,
 					colocados2F: Number(editForm.colocados2F) || 0,
+					matriculados2F: Number(editForm.matriculados2F ?? 0) || 0,
 					vagas3F: Number(editForm.vagas3F) || 0,
+					vagasEfetivas3F: Number(editForm.vagasEfetivas3F) || 0,
 					candidatos3F: Number(editForm.candidatos3F) || 0,
 					candidatos1Opcao3F: Number(editForm.candidatos1Opcao3F ?? 0) || 0,
 					colocados3F: Number(editForm.colocados3F) || 0,
+					matriculados3F: Number(editForm.matriculados3F ?? 0) || 0,
 					diffVagasMatAntes3F: Number(editForm.diffVagasMatAntes3F ?? 0) || 0,
 					// Classificação e média (último colocado / média de entrada)
 					classificacaoUltimo1F: Number(editForm.classificacaoUltimo1F ?? 0) || 0,
@@ -877,6 +930,8 @@
 					classificacaoUltimo2F: Number(editForm.classificacaoUltimo2F ?? 0) || 0,
 					classificacaoUltimo3F: Number(editForm.classificacaoUltimo3F ?? 0) || 0,
 					percOcupacaoCna: Number(String(editForm.percOcupacaoCna ?? 0).replace(',', '.')) || 0,
+					transfCnaOutrasIESup: Number(editForm.transfCnaOutrasIESup ?? 0) || 0,
+					transfCnaIpvc: Number(editForm.transfCnaIpvc ?? 0) || 0,
 					sobrasPos3F: Number(editForm.sobrasPos3F ?? 0) || 0
 				};
 
@@ -888,14 +943,15 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar CNA', await res.text());
-				} else {
-					showSuccess('Dados guardados com sucesso!');
+					showError();
+					return;
 				}
-			} catch (e) {
-				console.error('Erro ao guardar CNA', e);
-			} finally {
+				showSuccess('Dados guardados com sucesso!');
 				await invalidateAll();
 				fecharEditar();
+			} catch (e) {
+				console.error('Erro ao guardar CNA', e);
+				showError();
 			}
 
 			return;
@@ -924,14 +980,15 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar reingresso/mudança', await res.text());
-				} else {
-					showSuccess('Dados guardados com sucesso!');
+					showError();
+					return;
 				}
-			} catch (e) {
-				console.error('Erro ao guardar reingresso/mudança', e);
-			} finally {
+				showSuccess('Dados guardados com sucesso!');
 				await invalidateAll();
 				fecharEditar();
+			} catch (e) {
+				console.error('Erro ao guardar reingresso/mudança', e);
+				showError();
 			}
 
 			return;
@@ -974,14 +1031,15 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar concursos', await res.text());
-				} else {
-					showSuccess('Dados guardados com sucesso!');
+					showError();
+					return;
 				}
-			} catch (e) {
-				console.error('Erro ao guardar concursos', e);
-			} finally {
+				showSuccess('Dados guardados com sucesso!');
 				await invalidateAll();
 				fecharEditar();
+			} catch (e) {
+				console.error('Erro ao guardar concursos', e);
+				showError();
 			}
 
 			return;
@@ -1007,26 +1065,73 @@
 
 				if (!res.ok) {
 					console.error('Falha ao guardar regimes esp+internacionais', await res.text());
-				} else {
-					showSuccess('Dados guardados com sucesso!');
+					showError();
+					return;
 				}
-			} catch (e) {
-				console.error('Erro ao guardar regimes esp+internacionais', e);
-			} finally {
+				showSuccess('Dados guardados com sucesso!');
 				await invalidateAll();
 				fecharEditar();
+			} catch (e) {
+				console.error('Erro ao guardar regimes esp+internacionais', e);
+				showError();
 			}
 
 			return;
 		}
 
-		// Para outros modais (reingresso/mudança/totais) ainda não temos endpoint completo: mantemos o comportamento anterior.
-		// Total curso = soma dos 4 anos (calculado)
-		const sumAnos = (Number(editForm.year1) || 0) + (Number(editForm.year2) || 0) + (Number(editForm.year3) || 0) + (Number(editForm.year4) || 0);
-		editForm.totalMatriculatedPerCourse = sumAnos;
-		// Totais calculados: Colocados (5 concursos), Matriculados (5 concursos + regimes + int.), Diff (vagas − matriculados)
-		editForm.totalColocados = sumConcursosColocados(editForm);
-		editForm.totalMatriculados = sumConcursosMatriculados(editForm) + (Number(editForm.regimesEspMatriculados) || 0) + (Number(editForm.internationalMatriculados) || 0);
+		if (modalTab === 'totais') {
+			try {
+				const headers = { 'Content-Type': 'application/json' };
+				const id = editingRow.id;
+
+				const [resMat, resTot, resDiff] = await Promise.all([
+					fetch(`/ep/api/vagas/matriculas-ano/${id}`, {
+						method: 'PATCH',
+						headers,
+						body: JSON.stringify({
+							year1: Number(editForm.year1) || 0,
+							year2: Number(editForm.year2) || 0,
+							year3: Number(editForm.year3) || 0,
+							year4: Number(editForm.year4) || 0
+						})
+					}),
+					fetch(`/ep/api/vagas/totais-overrides/${id}`, {
+						method: 'PATCH',
+						headers,
+						body: JSON.stringify({
+							pedidosAnulacao: Number(editForm.pedidosAnulacao) || 0,
+							totalAvailableVacancies: Number(editForm.totalAvailableVacancies) || 0
+						})
+					}),
+					fetch(`/ep/api/vagas/curso/${id}`, {
+						method: 'PATCH',
+						headers,
+						body: JSON.stringify({
+							diffVagasMatAntes3F: Number(editForm.diffVagasMatAntes3F ?? 0) || 0
+						})
+					})
+				]);
+
+				if (!resMat.ok || !resTot.ok || !resDiff.ok) {
+					console.error('Falha ao guardar totais', {
+						matriculas: resMat.status,
+						totais: resTot.status,
+						diff: resDiff.status
+					});
+					showError();
+					return;
+				}
+				showSuccess('Dados guardados com sucesso!');
+				await invalidateAll();
+				fecharEditar();
+			} catch (e) {
+				console.error('Erro ao guardar totais', e);
+				showError();
+			}
+
+			return;
+		}
+
 		fecharEditar();
 	}
 
@@ -1075,6 +1180,18 @@
 	}
 	/* .subheader-blue removido (deixou de ser usado na tabela) */
 	/* (linhas grossas removidas a pedido) */
+	.vagas-table-scroll {
+		width: 100%;
+		max-width: 100%;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.table-scroll-hint {
+		margin: 0;
+	}
+
+	/* Tabela normal (Totais, Sobras, Reingresso, etc.) */
 	.table-main {
 		border-collapse: collapse;
 		width: 100%;
@@ -1083,6 +1200,7 @@
 		border-radius: 4px;
 		overflow: hidden;
 		box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
+		margin-bottom: 0;
 	}
 
 	.table-main th,
@@ -1092,10 +1210,12 @@
 		text-align: center;
 		vertical-align: middle;
 	}
+
 	.table-main thead th {
 		font-weight: 600;
 		font-size: 12px;
 	}
+
 	.table-main thead th.sticky-course {
 		position: sticky;
 		left: 0;
@@ -1103,6 +1223,7 @@
 		background-color: #f8f9ff;
 		text-align: left;
 	}
+
 	.table-main tbody td.sticky-course {
 		position: sticky;
 		left: 0;
@@ -1110,7 +1231,60 @@
 		background-color: #fff;
 		text-align: left;
 	}
-	/* Campos calculados (dependentes de outras colunas no Excel) */
+
+	.table-main:not(.table-dense) .col-acoes {
+		width: auto;
+		min-width: 5.5rem;
+		max-width: none;
+	}
+
+	.table-main:not(.table-dense) .btn-edit-compact .btn-edit-text {
+		display: inline;
+	}
+
+	.course-info-cell {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.course-info-name {
+		font-weight: 600;
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.course-info-code {
+		font-size: 11px;
+		color: #6c757d;
+	}
+
+	/* Tabs com poucas colunas: 100% largura, curso limitado via colgroup */
+	.table-main.table-balanced {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	.table-main.table-balanced col.col-course {
+		width: 220px;
+	}
+
+	.table-main.table-balanced col.col-acoes {
+		width: 90px;
+	}
+
+	.table-main.table-balanced thead th.sticky-course,
+	.table-main.table-balanced tbody td.sticky-course {
+		overflow: hidden;
+		vertical-align: middle;
+	}
+
 	.table-main td.formula-cell {
 		background-color: #e9ecef;
 		color: #495057;
@@ -1129,6 +1303,177 @@
 		line-height: 1;
 		appearance: textfield;
 		-moz-appearance: textfield;
+	}
+
+	/* Compacto: só Regime nacional + Concursos especiais */
+	.table-main.table-dense {
+		width: max-content;
+		min-width: 100%;
+		font-size: 10px;
+		overflow: visible;
+		box-shadow: none;
+	}
+
+	.table-main.table-dense th,
+	.table-main.table-dense td {
+		padding: 2px 3px;
+		line-height: 1.15;
+	}
+
+	.table-main.table-dense thead th.group-header-secondary {
+		font-size: 9px;
+		line-height: 1.15;
+		white-space: normal;
+		word-break: break-word;
+		hyphens: auto;
+		min-width: 1.65rem;
+		max-width: 3.25rem;
+		padding: 2px 2px;
+	}
+
+	.table-main.table-dense thead th.group-header {
+		white-space: normal;
+		line-height: 1.1;
+		padding: 3px 4px;
+		font-size: 9px;
+	}
+
+	.table-main.table-dense tbody td:not(.sticky-course):not(.col-acoes) {
+		white-space: nowrap;
+		min-width: 1.35rem;
+	}
+
+	.table-main.table-dense thead th {
+		font-size: 9px;
+	}
+
+	.table-main.table-dense thead th.sticky-course {
+		z-index: 3;
+		min-width: 7.5rem;
+		max-width: 9.5rem;
+		font-size: 9px;
+		padding: 3px 4px;
+		white-space: normal;
+		box-shadow: 4px 0 6px -2px rgba(15, 23, 42, 0.12);
+	}
+
+	.table-main.table-dense tbody td.sticky-course {
+		z-index: 2;
+		min-width: 7.5rem;
+		max-width: 9.5rem;
+		font-size: 9px;
+		padding: 2px 4px;
+		white-space: normal;
+		word-break: break-word;
+		box-shadow: 4px 0 6px -2px rgba(15, 23, 42, 0.08);
+	}
+
+	.table-main.table-dense tbody tr.row-alt-1 td.sticky-course {
+		background-color: #f8f9ff;
+	}
+
+	.table-main.table-dense tbody tr.school-row td.sticky-course {
+		background-color: #e3efff;
+	}
+
+	.table-main.table-dense tbody tr.row-selected td.sticky-course {
+		background-color: #f0f6ff;
+	}
+
+	.table-main.table-dense .col-acoes {
+		width: 2.5rem;
+		min-width: 2.5rem;
+		max-width: 2.5rem;
+		padding: 1px 2px !important;
+	}
+
+	.table-main.table-dense .btn-edit-compact {
+		padding: 1px 3px;
+		font-size: 9px;
+		line-height: 1.1;
+		border-radius: 3px;
+	}
+
+	.table-main.table-dense .btn-edit-compact .btn-edit-text {
+		display: none;
+	}
+
+	.table-main.table-dense .inline-edit-input {
+		padding: 0 1px;
+		font-size: inherit;
+		min-width: 1.35rem;
+		max-width: 2.5rem;
+		height: 18px;
+	}
+
+	@media (max-width: 1199.98px) {
+		.table-main.table-dense {
+			font-size: 9px;
+		}
+
+		.table-main.table-dense th,
+		.table-main.table-dense td {
+			padding: 1px 2px;
+		}
+
+		.table-main.table-dense thead th.group-header-secondary {
+			font-size: 8px;
+			min-width: 1.45rem;
+			max-width: 2.75rem;
+		}
+
+		.table-main.table-dense thead th.sticky-course,
+		.table-main.table-dense tbody td.sticky-course {
+			min-width: 6.25rem;
+			max-width: 7.5rem;
+			font-size: 8px;
+		}
+
+		.table-main.table-dense .inline-edit-input {
+			height: 16px;
+			max-width: 2.15rem;
+		}
+
+		.table-main.table-dense .col-acoes {
+			width: 2.15rem;
+			min-width: 2.15rem;
+			max-width: 2.15rem;
+		}
+	}
+
+	@media (max-width: 767.98px) {
+		.table-main.table-dense {
+			font-size: 8px;
+		}
+
+		.table-main.table-dense th,
+		.table-main.table-dense td {
+			padding: 1px 1px;
+		}
+
+		.table-main.table-dense thead th.group-header-secondary {
+			font-size: 7px;
+			min-width: 1.25rem;
+			max-width: 2.25rem;
+		}
+
+		.table-main.table-dense thead th.sticky-course,
+		.table-main.table-dense tbody td.sticky-course {
+			min-width: 5.5rem;
+			max-width: 6.5rem;
+			font-size: 7px;
+		}
+
+		.table-main.table-dense .inline-edit-input {
+			height: 15px;
+			max-width: 1.85rem;
+		}
+
+		.table-main.table-dense .col-acoes {
+			width: 1.85rem;
+			min-width: 1.85rem;
+			max-width: 1.85rem;
+		}
 	}
 	.table-main .inline-edit-input::-webkit-outer-spin-button,
 	.table-main .inline-edit-input::-webkit-inner-spin-button {
@@ -1523,8 +1868,14 @@
 				</div>
 			</div>
 
+			{#if activeTab === 'regime-nacional' || activeTab === 'concursos'}
+				<p class="table-scroll-hint text-muted mb-1">
+					<small>Em ecrãs estreitos, deslize a tabela horizontalmente — a coluna do curso mantém-se visível.</small>
+				</p>
+			{/if}
+
 		<div class="row mt-1">
-			<div class="col-12 table-responsive">
+			<div class="col-12 vagas-table-scroll">
 				{#if activeTab === 'full'}
 				<table class="table-main">
 						<thead>
@@ -1541,10 +1892,10 @@
 							<th class="group-header" rowspan="4">Total matriculados</th>
 							<th class="group-header" rowspan="4">Pedidos de Anulação de matrícula</th>
 							<th class="group-header" rowspan="4">Total vagas disponíveis</th>
-							<th class="group-header" rowspan="4">Transf CNA p outras IESup</th>
+							<th class="group-header" rowspan="4">Dif. vagas/mat antes 3.ª fase</th>
 							<th class="group-header" colspan="4">TOTAL MATRICULADOS</th>
 							<th class="group-header" rowspan="4">Total matriculados p/ curso</th>
-							<th class="group-header" rowspan="4" style="width: 90px; max-width: 90px;">Ações</th>
+							<th class="group-header col-acoes" rowspan="4">Ações</th>
 						</tr>
 						<tr>
 							<th class="group-header" colspan="17">Colocados</th>
@@ -1665,7 +2016,7 @@
 						{#each linhasFiltradas as row, idx (row.id)}
 							{#if isFirstRowOfSchool(linhasFiltradas, idx)}
 								<tr class="school-row">
-									<td colspan="100">
+									<td colspan={tableColspan('full')}>
 										{row.schoolName}
 									</td>
 								</tr>
@@ -1680,9 +2031,9 @@
 								style="cursor: pointer;"
 							>
 								<td class="sticky-course">
-									<div style="display: flex; flex-direction: column; align-items: flex-start;">
-										<span style="font-weight: 600;">{row.courseName}</span>
-										<span style="font-size: 11px; color: #6c757d;">{row.courseCode}</span>
+									<div class="course-info-cell">
+										<span class="course-info-name" title={row.courseName}>{row.courseName}</span>
+										<span class="course-info-code">{row.courseCode}</span>
 									</div>
 								</td>
 								<!-- 1.ª fase -->
@@ -1959,9 +2310,53 @@
 								<td class="formula-cell">
 									{(row.matriculados1F ?? 0) + (row.matriculados2F ?? 0) + (row.matriculados3F ?? 0)}
 								</td>
-								<!-- Movimentos -->
-								<td>{row.transfCnaOutrasIESup}</td>
-								<td>{row.transfCnaIpvc}</td>
+								<!-- Movimentos (transferências CNA) -->
+								<td ondblclick={() => beginInlineEdit(row, 'transfCnaOutrasIESup')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'transfCnaOutrasIESup'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.transfCnaOutrasIESup}
+									{/if}
+								</td>
+								<td ondblclick={() => beginInlineEdit(row, 'transfCnaIpvc')}>
+									{#if inlineEditRowId === row.id && inlineEditField === 'transfCnaIpvc'}
+										<input
+											type="number"
+											min="0"
+											step="1"
+											class="form-control form-control-sm inline-edit-input"
+											value={inlineEditValue}
+											oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+											onclick={(e) => e.stopPropagation()}
+											onblur={commitInlineEdit}
+											onkeydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault();
+													e.stopPropagation();
+													commitInlineEdit();
+												}
+											}}
+										/>
+									{:else}
+										{row.transfCnaIpvc}
+									{/if}
+								</td>
 								<!-- SOBRAS pós 3.ª fase (fora do módulo Regime Nacional) -->
 								<td ondblclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
@@ -2046,13 +2441,15 @@
 								<td>{row.year4}</td>
 								<!-- Total matriculados por curso -->
 								<td class="formula-cell">{row.totalMatriculatedPerCourse}</td>
-								<td style="width: 90px; max-width: 90px;" onclick={(e) => e.stopPropagation()}>
+								<td class="col-acoes" onclick={(e) => e.stopPropagation()}>
 									<button
 										type="button"
-										class="btn btn-sm btn-outline-primary"
+										class="btn btn-sm btn-outline-primary btn-edit-compact"
 										onclick={() => abrirEditar(row)}
+										aria-label="Editar curso"
+										title="Editar"
 									>
-										<i class="fa fa-edit mr-1"></i> Editar
+										<i class="fa fa-edit" aria-hidden="true"></i><span class="btn-edit-text"> Editar</span>
 									</button>
 								</td>
 							</tr>
@@ -2060,7 +2457,32 @@
 						</tbody>
 					</table>
 				{:else}
-				<table class="table-main">
+				<table class={tableMainClass(activeTab)}>
+						{#if activeTab === 'regimes-esp-internacionais'}
+							<colgroup>
+								<col class="col-course" />
+								<col span="6" />
+								<col class="col-acoes" />
+							</colgroup>
+						{:else if activeTab === 'sobras'}
+							<colgroup>
+								<col class="col-course" />
+								<col span="2" />
+								<col class="col-acoes" />
+							</colgroup>
+						{:else if activeTab === 'reingresso-mudanca'}
+							<colgroup>
+								<col class="col-course" />
+								<col span="10" />
+								<col class="col-acoes" />
+							</colgroup>
+						{:else if activeTab === 'totais'}
+							<colgroup>
+								<col class="col-course" />
+								<col span="10" />
+								<col class="col-acoes" />
+							</colgroup>
+						{/if}
 						<thead>
 						{#if activeTab === 'regime-nacional'}
 							<tr>
@@ -2070,10 +2492,12 @@
 								<th class="group-header-secondary" colspan="6">3.ª fase</th>
 								<th class="group-header-secondary" colspan="2">Total CNA</th>
 								<th class="group-header-secondary" colspan="4">TOTAL MATRICULADOS</th>
+								<th class="group-header-secondary" rowspan="2">Dif. vagas/mat antes 3.ª fase</th>
+								<th class="group-header-secondary" rowspan="2">% ocupação CNA</th>
 								<th class="group-header-secondary" rowspan="2">Transf CNA p outras IESup</th>
 								<th class="group-header-secondary" rowspan="2">Transf CNA p o IPVC</th>
 								<th class="group-header-secondary" rowspan="2">SOBRAS pós 3.ª fase</th>
-								<th class="group-header-secondary" rowspan="2" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes" rowspan="2">Ações</th>
 							</tr>
 							<tr>
 								<!-- 1.ª fase -->
@@ -2113,7 +2537,7 @@
 								<th class="group-header-secondary" colspan="4">Titulares CTeSP</th>
 								<th class="group-header-secondary" colspan="4">Titulares outros Curs Sup</th>
 								<th class="group-header-secondary" colspan="4">Titulares cursos dupla Certif nível sec e c artísticos especializados</th>
-								<th class="group-header-secondary" rowspan="2" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes" rowspan="2">Ações</th>
 							</tr>
 							<tr>
 								<th class="group-header-secondary">Vagas</th>
@@ -2139,10 +2563,10 @@
 							</tr>
 						{:else if activeTab === 'reingresso-mudanca'}
 							<tr>
-								<th class="sticky-course" rowspan="2">Informação do curso</th>
+								<th class="sticky-course" rowspan="2">Curso</th>
 								<th class="group-header-secondary" colspan="7">Reingresso</th>
 								<th class="group-header-secondary" colspan="3">Mudança par Int/Curso</th>
-								<th class="group-header-secondary" rowspan="2" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes" rowspan="2">Ações</th>
 							</tr>
 							<tr>
 								<th class="group-header-secondary">Vagas</th>
@@ -2158,10 +2582,10 @@
 							</tr>
 						{:else if activeTab === 'regimes-esp-internacionais'}
 							<tr>
-								<th class="sticky-course" rowspan="2">Informação do curso</th>
+								<th class="sticky-course" rowspan="2">Curso</th>
 								<th class="group-header-secondary" colspan="3">Regimes Esp</th>
 								<th class="group-header-secondary" colspan="3">Est Internacionais</th>
-								<th class="group-header-secondary" rowspan="2" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes" rowspan="2">Ações</th>
 							</tr>
 							<tr>
 								<th class="group-header-secondary">Vagas</th>
@@ -2173,14 +2597,14 @@
 							</tr>
 						{:else if activeTab === 'sobras'}
 							<tr>
-								<th class="sticky-course">Informação do curso</th>
+								<th class="sticky-course">Curso</th>
 								<th class="group-header-secondary">SOBRAS pós 3.ª fase</th>
 								<th class="group-header-secondary">Anulações</th>
-								<th class="group-header-secondary" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes">Ações</th>
 							</tr>
 						{:else if activeTab === 'totais'}
 							<tr>
-								<th class="sticky-course" rowspan="2">Informação do curso</th>
+								<th class="sticky-course" rowspan="2">Curso</th>
 								<th class="group-header-secondary" rowspan="2">Total colocados</th>
 								<th class="group-header-secondary" rowspan="2">Total matriculados</th>
 								<th class="group-header-secondary" rowspan="2">Pedidos de Anulação de matrícula</th>
@@ -2188,7 +2612,7 @@
 								<th class="group-header-secondary" rowspan="2">DIFERENÇA vagas/mat antes 3F</th>
 								<th class="group-header-secondary" colspan="4">TOTAL MATRICULADOS</th>
 								<th class="group-header-secondary" rowspan="2">Total matriculados por curso</th>
-								<th class="group-header-secondary" rowspan="2" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes" rowspan="2">Ações</th>
 							</tr>
 							<tr>
 								<th class="group-header-secondary">1.º ano</th>
@@ -2203,7 +2627,7 @@
 								<th class="group-header-secondary">Candidatos 1.ª fase</th>
 								<th class="group-header-secondary">Colocados 1.ª fase</th>
 								<th class="group-header-secondary">Matriculados 1.ª fase</th>
-								<th class="group-header-secondary" style="width: 90px; max-width: 90px;">Ações</th>
+								<th class="group-header-secondary col-acoes">Ações</th>
 							</tr>
 						{/if}
 					</thead>
@@ -2212,7 +2636,7 @@
 						{#each linhasFiltradas as row, idx (row.id)}
 							{#if isFirstRowOfSchool(linhasFiltradas, idx)}
 								<tr class="school-row">
-									<td colspan="100">
+									<td colspan={tableColspan(activeTab)}>
 										{row.schoolName}
 									</td>
 								</tr>
@@ -2227,9 +2651,9 @@
 								style="cursor: pointer;"
 							>
 								<td class="sticky-course">
-									<div style="display: flex; flex-direction: column; align-items: flex-start;">
-										<span style="font-weight: 600;">{row.courseName}</span>
-										<span style="font-size: 11px; color: #6c757d;">{row.courseCode}</span>
+									<div class="course-info-cell">
+										<span class="course-info-name" title={row.courseName}>{row.courseName}</span>
+										<span class="course-info-code">{row.courseCode}</span>
 									</div>
 								</td>
 
@@ -2747,6 +3171,52 @@
 											{row.percOcupacaoCna}
 										{/if}
 									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'transfCnaOutrasIESup')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'transfCnaOutrasIESup'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.transfCnaOutrasIESup}
+										{/if}
+									</td>
+									<td ondblclick={() => beginInlineEdit(row, 'transfCnaIpvc')}>
+										{#if inlineEditRowId === row.id && inlineEditField === 'transfCnaIpvc'}
+											<input
+												type="number"
+												min="0"
+												step="1"
+												class="form-control form-control-sm inline-edit-input"
+												value={inlineEditValue}
+												oninput={(e) => (inlineEditValue = e.currentTarget.value)}
+												onclick={(e) => e.stopPropagation()}
+												onblur={commitInlineEdit}
+												onkeydown={(e) => {
+													if (e.key === 'Enter') {
+														e.preventDefault();
+														e.stopPropagation();
+														commitInlineEdit();
+													}
+												}}
+											/>
+										{:else}
+											{row.transfCnaIpvc}
+										{/if}
+									</td>
 									<td ondblclick={() => beginInlineEdit(row, 'sobrasPos3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'sobrasPos3F'}
 											<input
@@ -3144,13 +3614,15 @@
 									<td>{row.matriculados1F}</td>
 								{/if}
 
-								<td style="width: 90px; max-width: 90px;" onclick={(e) => e.stopPropagation()}>
+								<td class="col-acoes" onclick={(e) => e.stopPropagation()}>
 									<button
 										type="button"
-										class="btn btn-sm btn-outline-primary"
+										class="btn btn-sm btn-outline-primary btn-edit-compact"
 										onclick={() => abrirEditar(row)}
+										aria-label="Editar curso"
+										title="Editar"
 									>
-										<i class="fa fa-edit mr-1"></i> Editar
+										<i class="fa fa-edit" aria-hidden="true"></i><span class="btn-edit-text"> Editar</span>
 									</button>
 								</td>
 							</tr>
@@ -3311,7 +3783,7 @@
 									</div>
 									<div class="col-md-4 mb-2">
 										<label for="v3ef">Vagas efetivas (2)</label>
-										<input id="v3ef" type="number" min="0" step="1" class="form-control" bind:value={editForm.vagas3F} />
+										<input id="v3ef" type="number" min="0" step="1" class="form-control" bind:value={editForm.vagasEfetivas3F} />
 									</div>
 									<div class="col-md-4 mb-2">
 										<label for="c3f">Candidatos</label>
@@ -3366,12 +3838,22 @@
 								</div>
 								<div class="row mt-2">
 									<div class="col-md-6 mb-2">
-										<label for="diff-3f">Transf CNA p outras IESup</label>
+										<label for="diff-3f">Dif. vagas/mat antes 3.ª fase</label>
 										<input id="diff-3f" type="number" min="0" class="form-control" bind:value={editForm.diffVagasMatAntes3F} />
 									</div>
 									<div class="col-md-6 mb-2">
-										<label for="ocup-cna">Transf CNA p o IPVC</label>
-										<input id="ocup-cna" type="number" min="0" step="1" class="form-control" bind:value={editForm.percOcupacaoCna} />
+										<label for="ocup-cna">% ocupação CNA</label>
+										<input id="ocup-cna" type="number" min="0" step="0.01" class="form-control" bind:value={editForm.percOcupacaoCna} />
+									</div>
+								</div>
+								<div class="row mt-2">
+									<div class="col-md-6 mb-2">
+										<label for="transf-out">Transf CNA p outras IESup</label>
+										<input id="transf-out" type="number" min="0" class="form-control" bind:value={editForm.transfCnaOutrasIESup} />
+									</div>
+									<div class="col-md-6 mb-2">
+										<label for="transf-in">Transf CNA p o IPVC</label>
+										<input id="transf-in" type="number" min="0" class="form-control" bind:value={editForm.transfCnaIpvc} />
 									</div>
 								</div>
 							</div>

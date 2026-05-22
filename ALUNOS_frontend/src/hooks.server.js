@@ -171,7 +171,11 @@ export const handle = (async ({ event, resolve }) => {
         }
 
         let jwe = await new JWESession().createJWE(dados);
-        let jwt = await new JWESession().decrypJWE(jwe)
+        let jwt = await new JWESession().decrypJWE(jwe);
+
+        if (!jwt?.payload) {
+            error(500, { message: 'Sessão inválida. Verifique JWE_ENCDEC_KEY no .env (chave base64url de 64 bytes).' });
+        }
 
         // voltar a fazer login aqui
         jwt.payload.jwt_api = await loginÑaAPI();

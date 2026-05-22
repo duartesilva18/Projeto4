@@ -85,8 +85,8 @@ export function exportToXlsx(data, anoLabel) {
 	r3[24] = 'Total Colocados';
 	r3[25] = 'Matriculados';
 	r3[28] = 'Total Matriculados (nas 3 fases CNA)';
-	r3[29] = 'Transf CNA p outras IESup';
-	r3[30] = 'Transf CNA p o IPVC';
+	r3[29] = 'Dif. vagas/mat antes 3.ª fase';
+	r3[30] = '% ocupação CNA';
 	r3[32] = 'Vagas'; r3[33] = 'Candidatos';
 	r3[34] = 'Colocados / Matriculados';
 	r3[39] = 'Vagas'; r3[40] = 'Candidatos'; r3[41] = 'Colocados / Matriculados';
@@ -143,7 +143,8 @@ export function exportToXlsx(data, anoLabel) {
 		row[25] = r.matriculados1F ?? 0; row[26] = r.matriculados2F ?? 0; row[27] = r.matriculados3F ?? 0;
 		const totalMat = Number(r.matriculados1F ?? 0) + Number(r.matriculados2F ?? 0) + Number(r.matriculados3F ?? 0);
 		row[28] = totalMat;
-		row[29] = r.diffVagasMatAntes3F ?? 0; row[30] = r.percOcupacaoCna ?? 0;
+		row[29] = r.diffVagasMatAntes3F ?? 0;
+		row[30] = r.percOcupacaoCna ?? 0;
 		row[31] = r.sobrasPos3F ?? 0;
 		row[32] = r.reingressoVagas ?? 0; row[33] = r.reingressoCandidatos ?? 0;
 		row[34] = r.reingressoAno1 ?? 0; row[35] = r.reingressoAno2 ?? 0;

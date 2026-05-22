@@ -68,14 +68,21 @@
 	/** @type {'abs_desc' | 'abs_asc' | 'nome'} */
 	let sortMode = $state('abs_desc');
 
-	/** Anos a comparar — atualizam a vista logo que mudas */
+	/** Valores escolhidos nos filtros (só afetam a tabela ao clicar na lupa) */
 	let anoA = $state('');
 	let anoB = $state('');
 	let anoC = $state('');
+	let pesquisaTexto = $state('');
+
+	/** Valores efetivamente aplicados */
+	let anoAAplicado = $state('');
+	let anoBAplicado = $state('');
+	let anoCAplicado = $state('');
 	let aplicadoEscola = $state('all');
 	let aplicadoCurso = $state('all');
+	let pesquisaAplicada = $state('');
+	let sortModeAplicado = $state('abs_desc');
 
-	let pesquisaTexto = $state('');
 	let pageSize = $state(50);
 	let pageIndex = $state(0);
 
@@ -97,16 +104,25 @@
 			anoA = anosDisponiveis[2];
 			anoB = anosDisponiveis[1];
 			anoC = anosDisponiveis[0];
+			anoAAplicado = anosDisponiveis[2];
+			anoBAplicado = anosDisponiveis[1];
+			anoCAplicado = anosDisponiveis[0];
 			inicializado = true;
 		} else if (anosDisponiveis.length === 2 && !inicializado) {
 			anoA = anosDisponiveis[1];
 			anoB = anosDisponiveis[0];
-			anoC = anosDisponiveis[0];
+			anoC = '';
+			anoAAplicado = anosDisponiveis[1];
+			anoBAplicado = anosDisponiveis[0];
+			anoCAplicado = '';
 			inicializado = true;
 		} else if (anosDisponiveis.length === 1 && !inicializado) {
 			anoA = anosDisponiveis[0];
-			anoB = anosDisponiveis[0];
-			anoC = anosDisponiveis[0];
+			anoB = '';
+			anoC = '';
+			anoAAplicado = anosDisponiveis[0];
+			anoBAplicado = '';
+			anoCAplicado = '';
 			inicializado = true;
 		}
 	});
@@ -124,9 +140,14 @@
 		pageIndex = 0;
 	});
 
-	function aplicarOpcionais() {
+	function aplicarFiltros() {
+		anoAAplicado = anoA;
+		anoBAplicado = anoB;
+		anoCAplicado = anoC;
 		aplicadoEscola = optEscola;
 		aplicadoCurso = optCurso;
+		pesquisaAplicada = pesquisaTexto;
+		sortModeAplicado = sortMode;
 		pageIndex = 0;
 	}
 
@@ -178,6 +199,7 @@
 
 	/** Δ₁ = (B) − (A) @param {{ rowA: Linha | undefined, rowB: Linha | undefined }} pair */
 	function deltaBA(pair, key) {
+		if (!anoAAplicado || !anoBAplicado || anoAAplicado === anoBAplicado) return null;
 		if (!pair.rowA || !pair.rowB) return null;
 		const va = num(pair.rowA, key);
 		const vb = num(pair.rowB, key);
@@ -187,6 +209,7 @@
 
 	/** Δ₂ = (C) − (B) @param {{ rowB: Linha | undefined, rowC: Linha | undefined }} pair */
 	function deltaCB(pair, key) {
+		if (!anoBAplicado || !anoCAplicado || anoBAplicado === anoCAplicado) return null;
 		if (!pair.rowB || !pair.rowC) return null;
 		const vb = num(pair.rowB, key);
 		const vc = num(pair.rowC, key);
@@ -211,16 +234,16 @@
 	}
 
 	let joined = $derived.by(() => {
-		const yA = anoA;
-		const yB = anoB;
-		const yC = anoC;
-		if (!yA || !yB || !yC) {
+		const yA = anoAAplicado;
+		const yB = anoBAplicado;
+		const yC = anoCAplicado;
+		if (!yA && !yB && !yC) {
 			return /** @type {{ key: string, rowA: Linha | undefined, rowB: Linha | undefined, rowC: Linha | undefined, displaySchool: string, displayCourse: string, displayCode: string }[]} */ ([]);
 		}
 
-		const a = filterRows(linhas, yA, aplicadoEscola, aplicadoCurso);
-		const b = filterRows(linhas, yB, aplicadoEscola, aplicadoCurso);
-		const c = filterRows(linhas, yC, aplicadoEscola, aplicadoCurso);
+		const a = yA ? filterRows(linhas, yA, aplicadoEscola, aplicadoCurso) : [];
+		const b = yB ? filterRows(linhas, yB, aplicadoEscola, aplicadoCurso) : [];
+		const c = yC ? filterRows(linhas, yC, aplicadoEscola, aplicadoCurso) : [];
 		const mapA = new Map();
 		const mapB = new Map();
 		const mapC = new Map();
@@ -246,7 +269,7 @@
 	});
 
 	let joinedFiltered = $derived.by(() => {
-		const q = pesquisaTexto.trim().toLowerCase();
+		const q = pesquisaAplicada.trim().toLowerCase();
 		if (!q) return joined;
 		return joined.filter((p) => {
 			const esc = (p.displaySchool || '').toLowerCase();
@@ -259,7 +282,7 @@
 	let joinedSorted = $derived.by(() => {
 		const arr = [...joinedFiltered];
 		const key = metricKey;
-		if (sortMode === 'nome') {
+		if (sortModeAplicado === 'nome') {
 			arr.sort(
 				(a, b) =>
 					(a.displaySchool || '').localeCompare(b.displaySchool || '', 'pt') ||
@@ -268,7 +291,7 @@
 			return arr;
 		}
 		const absFor = (p) => absSortScore(p, key);
-		if (sortMode === 'abs_desc') {
+		if (sortModeAplicado === 'abs_desc') {
 			arr.sort((a, b) => absFor(b) - absFor(a));
 			return arr;
 		}
@@ -315,6 +338,23 @@
 		return Math.min((pageIndex + 1) * effectivePageSize, joinedSorted.length);
 	});
 
+	let compareSubtitle = $derived.by(() => {
+		const parts = [];
+		if (anoAAplicado && anoBAplicado && anoAAplicado !== anoBAplicado) {
+			parts.push(`Δ₁ = (${anoBAplicado}) − (${anoAAplicado})`);
+		}
+		if (anoBAplicado && anoCAplicado && anoBAplicado !== anoCAplicado) {
+			parts.push(`Δ₂ = (${anoCAplicado}) − (${anoBAplicado})`);
+		}
+		return parts.join(' · ');
+	});
+
+	let avisoAnosInsuficientes = $derived.by(() => {
+		const n = anosDisponiveis.length;
+		if (n === 1) return 'Só existe um ano letivo. Os campos B, C, Δ₁ e Δ₂ aparecem como "—".';
+		if (n === 2) return 'Só existem dois anos letivos. O ano C e Δ₂ aparecem como "—".';
+		return '';
+	});
 </script>
 
 <Breadcrum modulo="Proposta de Vagas" objeto="Comparar anos" />
@@ -323,6 +363,7 @@
 	<p class="text-muted small mb-3">
 		Comparação entre <strong>três anos letivos</strong> (A, B e C), com <strong>indicadores principais</strong>.
 		<strong>Δ₁ = (B) − (A)</strong> e <strong>Δ₂ = (C) − (B)</strong>.
+		Altera os filtros e clica na <strong>lupa</strong> para atualizar a tabela.
 	</p>
 
 	<div class="row g-2 align-items-end mb-3 filter-row filter-controls">
@@ -332,6 +373,7 @@
 				{#if anosDisponiveis.length === 0}
 					<option value="">—</option>
 				{:else}
+					<option value="">—</option>
 					{#each anosDisponiveis as ano}
 						<option value={ano}>{ano}</option>
 					{/each}
@@ -344,6 +386,7 @@
 				{#if anosDisponiveis.length === 0}
 					<option value="">—</option>
 				{:else}
+					<option value="">—</option>
 					{#each anosDisponiveis as ano}
 						<option value={ano}>{ano}</option>
 					{/each}
@@ -356,6 +399,7 @@
 				{#if anosDisponiveis.length === 0}
 					<option value="">—</option>
 				{:else}
+					<option value="">—</option>
 					{#each anosDisponiveis as ano}
 						<option value={ano}>{ano}</option>
 					{/each}
@@ -372,15 +416,15 @@
 					placeholder="Escola, curso ou código DGES…"
 					bind:value={pesquisaTexto}
 					autocomplete="off"
+					onkeydown={(e) => {
+						if (e.key === 'Enter') aplicarFiltros();
+					}}
 				/>
 				<button
 					type="button"
 					class="btn btn-primary btn-sm filter-apply-icon"
 					aria-label="Aplicar filtros"
-					onclick={() => {
-						pageIndex = 0;
-						document.getElementById('cmp-pesquisa')?.focus();
-					}}
+					onclick={aplicarFiltros}
 				>
 					<i class="fa fa-search" aria-hidden="true"></i>
 				</button>
@@ -445,16 +489,16 @@
 						type="button"
 						class="btn btn-primary btn-sm cmp-details-apply filter-apply-icon"
 						title="Aplicar filtros"
-						aria-label="Aplicar filtros escola e curso"
-						onclick={aplicarOpcionais}
+						aria-label="Aplicar filtros"
+						onclick={aplicarFiltros}
 					>
 						<i class="fa fa-search" aria-hidden="true"></i>
 					</button>
 				</div>
 			</div>
 			<p class="cmp-details-hint">
-				Por defeito comparam-se <strong>todos os cursos</strong>. A ordenação na tabela aplica-se logo; escola e curso só após
-				<strong>Aplicar filtros</strong>.
+				Por defeito comparam-se <strong>todos os cursos</strong>. Os filtros só afetam a tabela após clicar no botão da
+				<strong>lupa</strong>.
 			</p>
 		</div>
 	</details>
@@ -464,9 +508,12 @@
 			<i class="fa fa-info-circle fa-2x mb-2"></i>
 			<p class="mb-0">Não há dados na tabela de vagas para comparar.</p>
 		</div>
-	{:else if !anoA || !anoB || !anoC}
-		<div class="alert alert-info">Escolhe os três anos letivos (A, B e C).</div>
+	{:else if !anoAAplicado && !anoBAplicado && !anoCAplicado}
+		<div class="alert alert-info">Escolhe pelo menos um ano letivo (A, B ou C) e clica na lupa.</div>
 	{:else}
+		{#if avisoAnosInsuficientes}
+			<div class="alert alert-warning py-2 mb-3">{avisoAnosInsuficientes}</div>
+		{/if}
 		<div class="card mb-3 cmp-toolbar-card">
 			<div class="card-body py-3 cmp-toolbar-inner">
 				<div class="cmp-toolbar-flex">
@@ -525,16 +572,16 @@
 						<thead>
 							<tr>
 								<th class="header-main" colspan="8">
-									{metricMeta.label} · Δ₁ = ({anoB}) − ({anoA}) · Δ₂ = ({anoC}) − ({anoB})
+									{metricMeta.label}{#if compareSubtitle} · {compareSubtitle}{/if}
 								</th>
 							</tr>
 							<tr>
 								<th class="header-col text-left">Escola</th>
 								<th class="header-col text-left">Curso</th>
 								<th class="header-col">Cód.</th>
-								<th class="header-col">{anoA}</th>
-								<th class="header-col">{anoB}</th>
-								<th class="header-col">{anoC}</th>
+								<th class="header-col">{anoAAplicado || '—'}</th>
+								<th class="header-col">{anoBAplicado || '—'}</th>
+								<th class="header-col">{anoCAplicado || '—'}</th>
 								<th class="header-col">Δ₁</th>
 								<th class="header-col">Δ₂</th>
 							</tr>
@@ -546,9 +593,9 @@
 								</tr>
 							{:else}
 								{#each joinedPage as pair, idx (pair.key)}
-									{@const va = num(pair.rowA, metricKey)}
-									{@const vb = num(pair.rowB, metricKey)}
-									{@const vc = num(pair.rowC, metricKey)}
+									{@const va = anoAAplicado ? num(pair.rowA, metricKey) : null}
+									{@const vb = anoBAplicado ? num(pair.rowB, metricKey) : null}
+									{@const vc = anoCAplicado ? num(pair.rowC, metricKey) : null}
 									{@const d1 = deltaBA(pair, metricKey)}
 									{@const d2 = deltaCB(pair, metricKey)}
 									<tr class={idx % 2 === 0 ? 'row-even' : 'row-odd'}>

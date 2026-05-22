@@ -159,6 +159,25 @@ END
 GO
 
 -- =========================================================
+--  VAGAS EFETIVAS 3.ª FASE (coluna Excel "vagas efetivas (2)")
+--  Distinto de vagas_3f (coluna "vagas(5)" em estatistica_acesso)
+-- =========================================================
+IF OBJECT_ID('vagas.vagas_efetivas_3f', 'U') IS NULL
+BEGIN
+    CREATE TABLE vagas.vagas_efetivas_3f (
+        id_vagas_efetivas_3f INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_curso_oferta      INT NOT NULL FOREIGN KEY REFERENCES vagas.curso_oferta(id_curso_oferta),
+        ano                  SMALLINT NOT NULL,
+        vagas_efetivas_3f    INT NOT NULL DEFAULT (0),
+
+        CONSTRAINT uq_vagas_efetivas_3f UNIQUE (id_curso_oferta, ano)
+    );
+    CREATE INDEX idx_vagas_efetivas_3f_curso_ano
+        ON vagas.vagas_efetivas_3f (id_curso_oferta, ano);
+END
+GO
+
+-- =========================================================
 --  DIFERENÇA VAGAS/MAT ANTES 3.ª FASE (override manual)
 --  Permite editar o valor que antes vinha da fórmula/view
 -- =========================================================

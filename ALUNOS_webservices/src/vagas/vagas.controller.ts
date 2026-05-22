@@ -53,22 +53,28 @@ export class VagasController {
       vagas1F?: number;
       candidatos1F?: number;
       colocados1F?: number;
+      matriculados1F?: number;
       candidatos1Opcao1F?: number;
       classificacaoUltimo1F?: number;
       mediaEntrada1F?: number;
       vagas2F?: number;
       candidatos2F?: number;
       colocados2F?: number;
+      matriculados2F?: number;
       candidatos1Opcao2F?: number;
       classificacaoUltimo2F?: number;
       vagas3F?: number;
+      vagasEfetivas3F?: number;
       candidatos3F?: number;
       colocados3F?: number;
+      matriculados3F?: number;
       candidatos1Opcao3F?: number;
       classificacaoUltimo3F?: number;
       sobrasPos3F?: number;
       diffVagasMatAntes3F?: number;
       percOcupacaoCna?: number;
+      transfCnaOutrasIESup?: number;
+      transfCnaIpvc?: number;
     }
   ) {
     return this.vagasService.atualizarCnaCurso(id, body);
