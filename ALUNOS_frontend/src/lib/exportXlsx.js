@@ -7,23 +7,53 @@ const PURPLE_BG = 'FFCCC1DA';
 const OLIVE = 'FF948A54';
 const RED = 'FFC0504D';
 const PINK_BG = 'FFE6B9B8';
-const LIGHT_BLUE = 'FFDCE6F2';
 const PURPLE_HEADER = 'FF8064A2';
 const ORANGE_TOTAL = 'FFF79646';
 
+// --- Cores das melhorias (referência: Excel final aprovado) ---
+// Escolas: alternam 2 azuis a cada mudança de escola
+const SCHOOL_A = 'FFDDEBF7'; // azul claro
+const SCHOOL_B = 'FFBDD7EE'; // azul mais escuro
+// Regimes (dados): alternam 2 cores por bloco
+const REG_A = 'FFE2EFDA'; // verde claro
+const REG_B = 'FFFCE4D6'; // pêssego claro
+// Títulos de regime / sub-regime: amarelo alternado
+const YELLOW = 'FFFFC000';
+const YELLOW_LIGHT = 'FFFFE699';
+
 const thin = { style: 'thin', color: { rgb: 'FF000000' } };
 const border = { top: thin, bottom: thin, left: thin, right: thin };
-
 const font8 = { sz: 8, name: 'Calibri' };
 const font8b = { sz: 8, name: 'Calibri', bold: true };
 const font8w = { sz: 8, name: 'Calibri', bold: true, color: { rgb: 'FFFFFFFF' } };
+const font8k = { sz: 8, name: 'Calibri', bold: true, color: { rgb: 'FF000000' } };
+
+/**
+ * Clareia uma cor ARGB misturando com branco. factor 0 = igual, 1 = branco.
+ * @param {string} argb
+ * @param {number} factor
+ */
+function lighten(argb, factor = 0.6) {
+	const h = argb.slice(-6);
+	let r = parseInt(h.slice(0, 2), 16);
+	let g = parseInt(h.slice(2, 4), 16);
+	let b = parseInt(h.slice(4, 6), 16);
+	r = Math.round(r + (255 - r) * factor);
+	g = Math.round(g + (255 - g) * factor);
+	b = Math.round(b + (255 - b) * factor);
+	const hex = (n) => n.toString(16).toUpperCase().padStart(2, '0');
+	return `FF${hex(r)}${hex(g)}${hex(b)}`;
+}
 
 /**
  * @param {string} bg - ARGB hex
- * @param {{ bold?: boolean, white?: boolean, wrap?: boolean }} [opts]
+ * @param {{ bold?: boolean, white?: boolean, black?: boolean, wrap?: boolean }} [opts]
  */
 function hStyle(bg, opts = {}) {
-	const f = opts.white ? font8w : opts.bold !== false ? font8b : font8;
+	let f = font8b;
+	if (opts.white) f = font8w;
+	else if (opts.black) f = font8k;
+	else if (opts.bold === false) f = font8;
 	return {
 		font: f,
 		fill: { fgColor: { rgb: bg } },
@@ -41,23 +71,51 @@ function dataStyle(bg = null) {
 	};
 }
 
+// === Mapa das colunas de TOTAIS (base-0) -> cor do título ===
+// Os dados destas colunas recebem a versão CLARA da cor.
+const TOTAL_COLS = {
+	23: ORANGE_TOTAL, // X  Total Candidatos CNA
+	24: PURPLE_HEADER, // Y  Total Colocados
+	28: RED, // AC Total Matriculados CNA
+	38: PURPLE_HEADER, // AM TOTAL (só 1º ano)
+	68: OLIVE, // BQ Total colocados
+	69: OLIVE, // BR Total matriculados
+	70: TEAL, // BS Pedidos Anulação
+	71: TEAL, // BT TOTAL VAGAS
+	72: TEAL, // BU DIFERENÇA
+	74: OLIVE, // BW
+	75: OLIVE, // BX
+	76: OLIVE, // BY
+	77: OLIVE, // BZ
+	79: OLIVE // CB Total matriculados p/ curso
+};
+
+// === Blocos de REGIME (dados) -> base-0 [início, fim] na ordem visual ===
+// Regime Nacional fica de fora (mantém estilo próprio nos cabeçalhos);
+// para os DADOS, alternamos os blocos a seguir.
+const REGIME_BLOCKS = [
+	[6, 28], // Regime Nacional
+	[29, 31], // Transf CNA + Sobras
+	[32, 38], // Reingresso
+	[39, 41], // Mudança
+	[42, 61], // Concursos Especiais
+	[62, 64], // Regimes Esp
+	[65, 67] // Est Internacionais
+];
+
 /**
  * @param {import('../routes/(app)/(modules)/proposta-vagas/+page.svelte').CourseData[]} data
  * @param {string} anoLabel
  */
 export function exportToXlsx(data, anoLabel) {
 	const wb = XLSX.utils.book_new();
-
 	const HEADER_ROWS = 5;
 	const totalDataRows = data.length;
 	const totalRows = HEADER_ROWS + totalDataRows;
-
 	const aoa = [];
 
-	// Row 1 (index 0) - empty
 	aoa.push(new Array(80).fill(''));
 
-	// Row 2 (index 1) - top level groups
 	const r2 = new Array(80).fill('');
 	r2[1] = anoLabel;
 	r2[6] = 'Regime Nacional de acesso Ensino Superior';
@@ -78,7 +136,6 @@ export function exportToXlsx(data, anoLabel) {
 	r2[79] = 'Total matriculados p/ curso';
 	aoa.push(r2);
 
-	// Row 3 (index 2)
 	const r3 = new Array(80).fill('');
 	r3[6] = 'Colocados';
 	r3[23] = 'Total Candidatos Total CNA';
@@ -87,42 +144,87 @@ export function exportToXlsx(data, anoLabel) {
 	r3[28] = 'Total Matriculados (nas 3 fases CNA)';
 	r3[29] = 'Dif. vagas/mat antes 3.ª fase';
 	r3[30] = '% ocupação CNA';
-	r3[32] = 'Vagas'; r3[33] = 'Candidatos';
+	r3[32] = 'Vagas';
+	r3[33] = 'Candidatos';
 	r3[34] = 'Colocados / Matriculados';
-	r3[39] = 'Vagas'; r3[40] = 'Candidatos'; r3[41] = 'Colocados / Matriculados';
-	r3[42] = '>23 anos'; r3[46] = 'CET'; r3[50] = 'Titulares CTeSP';
+	r3[39] = 'Vagas';
+	r3[40] = 'Candidatos';
+	r3[41] = 'Colocados / Matriculados';
+	r3[42] = '>23 anos';
+	r3[46] = 'CET';
+	r3[50] = 'Titulares CTeSP';
 	r3[54] = 'Titulares outros Curs Sup';
 	r3[58] = 'Titulares cursos dupla Certif nível sec e c artisticos especializados';
-	r3[62] = 'vagas'; r3[63] = 'candidatos'; r3[64] = 'matriculados';
-	r3[65] = 'vagas'; r3[66] = 'candidatos'; r3[67] = 'matriculados';
+	r3[62] = 'vagas';
+	r3[63] = 'candidatos';
+	r3[64] = 'matriculados';
+	r3[65] = 'vagas';
+	r3[66] = 'candidatos';
+	r3[67] = 'matriculados';
 	aoa.push(r3);
 
-	// Row 4 (index 3)
 	const r4 = new Array(80).fill('');
 	r4[1] = 'ESCOLAS / CURSOS / Vagas Conc Nac Acesso Ens Sup';
-	r4[6] = '1ª fase'; r4[12] = '2ª fase'; r4[17] = '3ª fase';
-	r4[25] = '1ª fase'; r4[26] = '2ª fase'; r4[27] = '3ª fase';
-	r4[34] = '1ºano'; r4[35] = '2ºano'; r4[36] = '3ºano'; r4[37] = '4ºano'; r4[38] = 'TOTAL (só 1º ano)';
-	r4[42] = 'vagas'; r4[43] = 'candidatos'; r4[44] = 'colocados'; r4[45] = 'matriculados';
-	r4[46] = 'vagas'; r4[47] = 'candidatos'; r4[48] = 'colocados'; r4[49] = 'matriculados';
-	r4[50] = 'vagas'; r4[51] = 'candidatos'; r4[52] = 'colocados'; r4[53] = 'matriculados';
-	r4[54] = 'vagas'; r4[55] = 'candidatos'; r4[56] = 'colocados'; r4[57] = 'matriculados';
-	r4[58] = 'vagas'; r4[59] = 'candidatos (3)'; r4[60] = 'colocados'; r4[61] = 'matriculados';
-	r4[74] = '1ºano'; r4[75] = '2ºano'; r4[76] = '3ºano'; r4[77] = '4ºano';
+	r4[6] = '1ª fase';
+	r4[12] = '2ª fase';
+	r4[17] = '3ª fase';
+	r4[25] = '1ª fase';
+	r4[26] = '2ª fase';
+	r4[27] = '3ª fase';
+	r4[34] = '1ºano';
+	r4[35] = '2ºano';
+	r4[36] = '3ºano';
+	r4[37] = '4ºano';
+	r4[38] = 'TOTAL (só 1º ano)';
+	r4[42] = 'vagas';
+	r4[43] = 'candidatos';
+	r4[44] = 'colocados';
+	r4[45] = 'matriculados';
+	r4[46] = 'vagas';
+	r4[47] = 'candidatos';
+	r4[48] = 'colocados';
+	r4[49] = 'matriculados';
+	r4[50] = 'vagas';
+	r4[51] = 'candidatos';
+	r4[52] = 'colocados';
+	r4[53] = 'matriculados';
+	r4[54] = 'vagas';
+	r4[55] = 'candidatos';
+	r4[56] = 'colocados';
+	r4[57] = 'matriculados';
+	r4[58] = 'vagas';
+	r4[59] = 'candidatos (3)';
+	r4[60] = 'colocados';
+	r4[61] = 'matriculados';
+	r4[74] = '1ºano';
+	r4[75] = '2ºano';
+	r4[76] = '3ºano';
+	r4[77] = '4ºano';
 	aoa.push(r4);
 
-	// Row 5 (index 4) - detail headers
 	const r5 = new Array(80).fill('');
-	r5[1] = 'Escola'; r5[2] = 'Código curso'; r5[3] = 'Nome curso';
-	r5[6] = 'vagas CNA'; r5[7] = 'candidatos'; r5[8] = 'Candidatos 1ª opção(4)';
-	r5[9] = 'colocados(3)'; r5[10] = 'Classif último colocado'; r5[11] = 'média entrada';
-	r5[12] = 'vagas (1)'; r5[13] = 'candidatos'; r5[14] = 'Candidatos 1ª opção(4)';
-	r5[15] = 'colocados(1)'; r5[16] = 'Classif último colocado';
-	r5[17] = 'vagas(5)'; r5[18] = 'vagas efetivas (2)'; r5[19] = 'candidatos';
-	r5[20] = 'Candidatos 1ª opção(4)'; r5[21] = 'colocados(1)'; r5[22] = 'Classif último colocado';
+	r5[1] = 'Escola';
+	r5[2] = 'Código curso';
+	r5[3] = 'Nome curso';
+	r5[6] = 'vagas CNA';
+	r5[7] = 'candidatos';
+	r5[8] = 'Candidatos 1ª opção(4)';
+	r5[9] = 'colocados(3)';
+	r5[10] = 'Classif último colocado';
+	r5[11] = 'média entrada';
+	r5[12] = 'vagas (1)';
+	r5[13] = 'candidatos';
+	r5[14] = 'Candidatos 1ª opção(4)';
+	r5[15] = 'colocados(1)';
+	r5[16] = 'Classif último colocado';
+	r5[17] = 'vagas(5)';
+	r5[18] = 'vagas efetivas (2)';
+	r5[19] = 'candidatos';
+	r5[20] = 'Candidatos 1ª opção(4)';
+	r5[21] = 'colocados(1)';
+	r5[22] = 'Classif último colocado';
 	aoa.push(r5);
 
-	// Data rows
 	data.forEach((r, idx) => {
 		const row = new Array(80).fill('');
 		row[0] = idx + 1;
@@ -131,54 +233,87 @@ export function exportToXlsx(data, anoLabel) {
 		row[3] = r.courseName ?? '';
 		row[4] = '';
 		row[5] = '';
-		row[6] = r.vagas1F ?? 0; row[7] = r.candidatos1F ?? 0; row[8] = r.candidatos1Opcao1F ?? 0;
-		row[9] = r.colocados1F ?? 0; row[10] = r.classificacaoUltimo1F ?? 0; row[11] = r.mediaEntrada1F ?? 0;
-		row[12] = r.vagas2F ?? 0; row[13] = r.candidatos2F ?? 0; row[14] = r.candidatos1Opcao2F ?? 0;
-		row[15] = r.colocados2F ?? 0; row[16] = r.classificacaoUltimo2F ?? 0;
-		row[17] = r.vagas3F ?? 0; row[18] = r.vagasEfetivas3F ?? 0; row[19] = r.candidatos3F ?? 0;
-		row[20] = r.candidatos1Opcao3F ?? 0; row[21] = r.colocados3F ?? 0; row[22] = r.classificacaoUltimo3F ?? 0;
+		row[6] = r.vagas1F ?? 0;
+		row[7] = r.candidatos1F ?? 0;
+		row[8] = r.candidatos1Opcao1F ?? 0;
+		row[9] = r.colocados1F ?? 0;
+		row[10] = r.classificacaoUltimo1F ?? 0;
+		row[11] = r.mediaEntrada1F ?? 0;
+		row[12] = r.vagas2F ?? 0;
+		row[13] = r.candidatos2F ?? 0;
+		row[14] = r.candidatos1Opcao2F ?? 0;
+		row[15] = r.colocados2F ?? 0;
+		row[16] = r.classificacaoUltimo2F ?? 0;
+		row[17] = r.vagas3F ?? 0;
+		row[18] = r.vagasEfetivas3F ?? 0;
+		row[19] = r.candidatos3F ?? 0;
+		row[20] = r.candidatos1Opcao3F ?? 0;
+		row[21] = r.colocados3F ?? 0;
+		row[22] = r.classificacaoUltimo3F ?? 0;
 		row[23] = r.totalCandidatosCna ?? 0;
 		row[24] =
 			r.totalColocadosCna ??
 			Number(r.colocados1F ?? 0) + Number(r.colocados2F ?? 0) + Number(r.colocados3F ?? 0);
-		row[25] = r.matriculados1F ?? 0; row[26] = r.matriculados2F ?? 0; row[27] = r.matriculados3F ?? 0;
+		row[25] = r.matriculados1F ?? 0;
+		row[26] = r.matriculados2F ?? 0;
+		row[27] = r.matriculados3F ?? 0;
 		row[28] =
 			r.totalMatriculadosCna ??
 			Number(r.matriculados1F ?? 0) + Number(r.matriculados2F ?? 0) + Number(r.matriculados3F ?? 0);
 		row[29] = r.diffVagasMatAntes3F ?? 0;
 		row[30] = r.percOcupacaoCna ?? 0;
 		row[31] = r.sobrasPos3F ?? 0;
-		row[32] = r.reingressoVagas ?? 0; row[33] = r.reingressoCandidatos ?? 0;
-		row[34] = r.reingressoAno1 ?? 0; row[35] = r.reingressoAno2 ?? 0;
-		row[36] = r.reingressoAno3 ?? 0; row[37] = r.reingressoAno4 ?? 0;
+		row[32] = r.reingressoVagas ?? 0;
+		row[33] = r.reingressoCandidatos ?? 0;
+		row[34] = r.reingressoAno1 ?? 0;
+		row[35] = r.reingressoAno2 ?? 0;
+		row[36] = r.reingressoAno3 ?? 0;
+		row[37] = r.reingressoAno4 ?? 0;
 		row[38] = r.reingressoTotal1Ano ?? 0;
-		row[39] = r.mudancaVagas ?? 0; row[40] = r.mudancaCandidatos ?? 0;
+		row[39] = r.mudancaVagas ?? 0;
+		row[40] = r.mudancaCandidatos ?? 0;
 		row[41] = r.mudancaColocadosMatriculados ?? 0;
-		row[42] = r.over23Vagas ?? 0; row[43] = r.over23Candidatos ?? 0;
-		row[44] = r.over23Colocados ?? 0; row[45] = r.over23Matriculados ?? 0;
-		row[46] = r.cetVagas ?? 0; row[47] = r.cetCandidatos ?? 0;
-		row[48] = r.cetColocados ?? 0; row[49] = r.cetMatriculados ?? 0;
-		row[50] = r.ctespVagas ?? 0; row[51] = r.ctespCandidatos ?? 0;
-		row[52] = r.ctespColocados ?? 0; row[53] = r.ctespMatriculados ?? 0;
-		row[54] = r.otherHigherVagas ?? 0; row[55] = r.otherHigherCandidatos ?? 0;
-		row[56] = r.otherHigherColocados ?? 0; row[57] = r.otherHigherMatriculados ?? 0;
-		row[58] = r.dualCertVagas ?? 0; row[59] = r.dualCertCandidatos ?? 0;
-		row[60] = r.dualCertColocados ?? 0; row[61] = r.dualCertMatriculados ?? 0;
-		row[62] = r.regimesEspVagas ?? 0; row[63] = r.regimesEspCandidatos ?? 0;
+		row[42] = r.over23Vagas ?? 0;
+		row[43] = r.over23Candidatos ?? 0;
+		row[44] = r.over23Colocados ?? 0;
+		row[45] = r.over23Matriculados ?? 0;
+		row[46] = r.cetVagas ?? 0;
+		row[47] = r.cetCandidatos ?? 0;
+		row[48] = r.cetColocados ?? 0;
+		row[49] = r.cetMatriculados ?? 0;
+		row[50] = r.ctespVagas ?? 0;
+		row[51] = r.ctespCandidatos ?? 0;
+		row[52] = r.ctespColocados ?? 0;
+		row[53] = r.ctespMatriculados ?? 0;
+		row[54] = r.otherHigherVagas ?? 0;
+		row[55] = r.otherHigherCandidatos ?? 0;
+		row[56] = r.otherHigherColocados ?? 0;
+		row[57] = r.otherHigherMatriculados ?? 0;
+		row[58] = r.dualCertVagas ?? 0;
+		row[59] = r.dualCertCandidatos ?? 0;
+		row[60] = r.dualCertColocados ?? 0;
+		row[61] = r.dualCertMatriculados ?? 0;
+		row[62] = r.regimesEspVagas ?? 0;
+		row[63] = r.regimesEspCandidatos ?? 0;
 		row[64] = r.regimesEspMatriculados ?? 0;
-		row[65] = r.internationalVagas ?? 0; row[66] = r.internationalCandidatos ?? 0;
+		row[65] = r.internationalVagas ?? 0;
+		row[66] = r.internationalCandidatos ?? 0;
 		row[67] = r.internationalMatriculados ?? 0;
-		row[68] = r.totalColocados ?? 0; row[69] = r.totalMatriculados ?? 0;
-		row[70] = r.pedidosAnulacao ?? 0; row[71] = r.totalAvailableVacancies ?? 0;
+		row[68] = r.totalColocados ?? 0;
+		row[69] = r.totalMatriculados ?? 0;
+		row[70] = r.pedidosAnulacao ?? 0;
+		row[71] = r.totalAvailableVacancies ?? 0;
 		row[72] = r.diffVagasMatAntes3F ?? 0;
-		row[74] = r.year1 ?? 0; row[75] = r.year2 ?? 0; row[76] = r.year3 ?? 0; row[77] = r.year4 ?? 0;
+		row[74] = r.year1 ?? 0;
+		row[75] = r.year2 ?? 0;
+		row[76] = r.year3 ?? 0;
+		row[77] = r.year4 ?? 0;
 		row[79] = r.totalMatriculatedPerCourse ?? 0;
 		aoa.push(row);
 	});
 
 	const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-	// -- Merges (matching the original Excel) --
 	ws['!merges'] = [
 		{ s: { r: 1, c: 1 }, e: { r: 2, c: 3 } },
 		{ s: { r: 1, c: 6 }, e: { r: 1, c: 28 } },
@@ -245,28 +380,29 @@ export function exportToXlsx(data, anoLabel) {
 		{ s: { r: 1, c: 72 }, e: { r: 4, c: 72 } },
 		{ s: { r: 1, c: 74 }, e: { r: 3, c: 77 } },
 		{ s: { r: 1, c: 79 }, e: { r: 4, c: 79 } },
-		{ s: { r: 3, c: 1 }, e: { r: 4, c: 3 } },
+		{ s: { r: 3, c: 1 }, e: { r: 4, c: 3 } }
 	];
 
-	// -- Cell styles --
 	const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-
 	function setCell(r, c, style) {
 		const addr = XLSX.utils.encode_cell({ r, c });
 		if (!ws[addr]) ws[addr] = { v: '', t: 's' };
 		ws[addr].s = style;
 	}
 
-	// Row 2 (r=1) colors
+	// ===================== CABEÇALHOS (linhas 2-5) =====================
+	// Row 2 (r=1)
 	for (let c = 6; c <= 28; c++) setCell(1, c, hStyle(NAVY, { white: true }));
 	setCell(1, 29, hStyle(NAVY, { white: true }));
 	setCell(1, 30, hStyle(NAVY, { white: true }));
-	setCell(1, 31, hStyle(TEAL, { white: true }));
-	for (let c = 32; c <= 38; c++) setCell(1, c, hStyle(TEAL));
-	for (let c = 39; c <= 41; c++) setCell(1, c, hStyle(TEAL));
-	for (let c = 42; c <= 61; c++) setCell(1, c, hStyle(TEAL));
-	for (let c = 62; c <= 64; c++) setCell(1, c, hStyle(TEAL));
-	for (let c = 65; c <= 67; c++) setCell(1, c, hStyle(TEAL));
+	setCell(1, 31, hStyle(NAVY, { white: true })); // AF2 igual ao azul-escuro de AE2
+	// Títulos de regime PRINCIPAIS -> amarelo alternado (texto preto)
+	// ordem visual: Reingresso(32), Mudança(39), ConcEsp(42), RegEsp(62), Internac(65)
+	for (let c = 32; c <= 38; c++) setCell(1, c, hStyle(YELLOW, { black: true }));
+	for (let c = 39; c <= 41; c++) setCell(1, c, hStyle(YELLOW_LIGHT, { black: true }));
+	for (let c = 42; c <= 61; c++) setCell(1, c, hStyle(YELLOW, { black: true }));
+	for (let c = 62; c <= 64; c++) setCell(1, c, hStyle(YELLOW_LIGHT, { black: true }));
+	for (let c = 65; c <= 67; c++) setCell(1, c, hStyle(YELLOW, { black: true }));
 	setCell(1, 68, hStyle(OLIVE, { white: true }));
 	setCell(1, 69, hStyle(OLIVE, { white: true }));
 	setCell(1, 70, hStyle(TEAL, { white: true }));
@@ -275,7 +411,7 @@ export function exportToXlsx(data, anoLabel) {
 	for (let c = 74; c <= 77; c++) setCell(1, c, hStyle(OLIVE, { white: true }));
 	setCell(1, 79, hStyle(OLIVE, { white: true }));
 
-	// Row 3 (r=2) colors
+	// Row 3 (r=2)
 	for (let c = 6; c <= 22; c++) setCell(2, c, hStyle(NAVY, { white: true }));
 	setCell(2, 23, hStyle(ORANGE_TOTAL, { white: true }));
 	setCell(2, 24, hStyle(PURPLE_HEADER, { white: true }));
@@ -289,21 +425,32 @@ export function exportToXlsx(data, anoLabel) {
 	setCell(2, 39, hStyle(TEAL, { white: true }));
 	setCell(2, 40, hStyle(TEAL, { white: true }));
 	setCell(2, 41, hStyle(TEAL, { white: true }));
-	for (let c = 42; c <= 61; c++) setCell(2, c, hStyle(TEAL));
+	// Sub-regimes dos Concursos Especiais -> amarelo alternado (texto preto)
+	// >23(42-45), CET(46-49), CTeSP(50-53), Outros(54-57), DuplaCert(58-61)
+	for (let c = 42; c <= 45; c++) setCell(2, c, hStyle(YELLOW, { black: true }));
+	for (let c = 46; c <= 49; c++) setCell(2, c, hStyle(YELLOW_LIGHT, { black: true }));
+	for (let c = 50; c <= 53; c++) setCell(2, c, hStyle(YELLOW, { black: true }));
+	for (let c = 54; c <= 57; c++) setCell(2, c, hStyle(YELLOW_LIGHT, { black: true }));
+	for (let c = 58; c <= 61; c++) setCell(2, c, hStyle(YELLOW, { black: true }));
 	for (let c = 62; c <= 67; c++) setCell(2, c, hStyle(TEAL, { white: true }));
 	for (let c = 68; c <= 69; c++) setCell(2, c, hStyle(OLIVE, { white: true }));
 	for (let c = 74; c <= 77; c++) setCell(2, c, hStyle(OLIVE, { white: true }));
 
-	// Row 4 (r=3) colors
+	// Row 4 (r=3)
 	for (let c = 6; c <= 22; c++) setCell(3, c, hStyle(NAVY, { white: true }));
-	setCell(3, 25, hStyle(PINK_BG)); setCell(3, 26, hStyle(PINK_BG)); setCell(3, 27, hStyle(PINK_BG));
-	setCell(3, 34, hStyle(PURPLE_BG)); setCell(3, 35, hStyle(TEAL)); setCell(3, 36, hStyle(TEAL));
-	setCell(3, 37, hStyle(TEAL)); setCell(3, 38, hStyle(PURPLE_HEADER, { white: true }));
+	setCell(3, 25, hStyle(PINK_BG));
+	setCell(3, 26, hStyle(PINK_BG));
+	setCell(3, 27, hStyle(PINK_BG));
+	setCell(3, 34, hStyle(PURPLE_BG));
+	setCell(3, 35, hStyle(TEAL));
+	setCell(3, 36, hStyle(TEAL));
+	setCell(3, 37, hStyle(TEAL));
+	setCell(3, 38, hStyle(PURPLE_HEADER, { white: true }));
 	for (let c = 42; c <= 61; c++) setCell(3, c, hStyle(TEAL));
 	for (let c = 68; c <= 69; c++) setCell(3, c, hStyle(OLIVE, { white: true }));
 	for (let c = 74; c <= 77; c++) setCell(3, c, hStyle(OLIVE, { white: true }));
 
-	// Row 5 (r=4) detail header colors
+	// Row 5 (r=4) detail headers
 	const r5colors = {
 		6: TEAL, 7: ORANGE_BG, 8: TEAL, 9: PURPLE_BG, 10: TEAL, 11: TEAL,
 		12: TEAL, 13: ORANGE_BG, 14: TEAL, 15: PURPLE_BG, 16: TEAL,
@@ -319,37 +466,73 @@ export function exportToXlsx(data, anoLabel) {
 	for (let c = 74; c <= 77; c++) setCell(4, c, hStyle(OLIVE, { white: true }));
 	setCell(4, 79, hStyle(OLIVE, { white: true }));
 
-	// Data row styles - alternate light blue for school rows
-	const ds = dataStyle();
-	const dsBlue = dataStyle(LIGHT_BLUE);
+	// ===================== DADOS =====================
+	// Pré-calcular cor clara de cada bloco de regime e de cada total.
+	const regimeColorByCol = {};
+	REGIME_BLOCKS.forEach(([start, end], i) => {
+		const col = i % 2 === 0 ? REG_A : REG_B;
+		for (let c = start; c <= end; c++) regimeColorByCol[c] = col;
+	});
+	const totalLightByCol = {};
+	for (const [c, base] of Object.entries(TOTAL_COLS)) {
+		totalLightByCol[Number(c)] = lighten(base, 0.6);
+	}
+
+	// Cache de estilos para não recriar objetos a cada célula.
+	const styleCache = new Map();
+	function cachedDataStyle(bg) {
+		const key = bg || 'none';
+		if (!styleCache.has(key)) styleCache.set(key, dataStyle(bg));
+		return styleCache.get(key);
+	}
+
+	// Alternância de escola: troca de azul sempre que schoolName muda.
+	let prevSchool = null;
+	let schoolToggle = 0; // 0 -> A, 1 -> B
+	const schoolColorByRow = [];
+	for (let i = 0; i < totalDataRows; i++) {
+		const name = String(data[i].schoolName ?? '').trim();
+		if (name !== '' && name !== prevSchool) {
+			if (prevSchool !== null) schoolToggle ^= 1;
+			prevSchool = name;
+		}
+		schoolColorByRow[i] = schoolToggle === 0 ? SCHOOL_A : SCHOOL_B;
+	}
+
 	for (let ri = HEADER_ROWS; ri < totalRows; ri++) {
-		const schoolCell = ws[XLSX.utils.encode_cell({ r: ri, c: 1 })];
-		const hasSchool = schoolCell && schoolCell.v && String(schoolCell.v).trim() !== '';
-		const style = hasSchool ? dsBlue : ds;
+		const dataIdx = ri - HEADER_ROWS;
+		const schoolColor = schoolColorByRow[dataIdx];
 		for (let ci = 0; ci < 80; ci++) {
 			const addr = XLSX.utils.encode_cell({ r: ri, c: ci });
 			if (!ws[addr]) ws[addr] = { v: '', t: 's' };
-			ws[addr].s = style;
+			let bg;
+			if (totalLightByCol[ci] !== undefined) {
+				bg = totalLightByCol[ci]; // total -> versão clara da sua cor
+			} else if (regimeColorByCol[ci] !== undefined) {
+				bg = regimeColorByCol[ci]; // dados de regime -> cor do bloco
+			} else {
+				bg = schoolColor; // info do curso (col 0-5) e restantes -> cor da escola
+			}
+			ws[addr].s = cachedDataStyle(bg);
 		}
 	}
 
-	// Column widths
 	ws['!cols'] = [
-		{ wch: 4 },   // A - #
-		{ wch: 10 },  // B - Escola
-		{ wch: 8 },   // C - Código
-		{ wch: 30 },  // D - Nome curso
-		{ wch: 7 },   // E
-		{ wch: 7 },   // F
+		{ wch: 4 },
+		{ wch: 10 },
+		{ wch: 8 },
+		{ wch: 30 },
+		{ wch: 7 },
+		{ wch: 7 }
 	];
 	for (let i = 6; i < 80; i++) {
 		ws['!cols'].push({ wch: 9 });
 	}
 
 	ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalRows - 1, c: 79 } });
-
 	XLSX.utils.book_append_sheet(wb, ws, 'Proposta de Vagas');
-
 	const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-	return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+	return new Blob([wbout], {
+		type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+	});
 }

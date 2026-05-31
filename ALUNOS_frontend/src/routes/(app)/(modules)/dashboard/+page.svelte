@@ -22,6 +22,7 @@
 	import { browser } from '$app/environment';
 
 	const DASHBOARD_FILTROS_STORAGE_KEY = 'dashboard-filtros-aplicados';
+	const MAX_ANOS_DASHBOARD = 4;
 
 	const DASHBOARD_VIEW_IDS = new Set(
 		DASHBOARD_VIEW_GROUPS.flatMap((g) => g.options.map((o) => o.id))
@@ -173,12 +174,22 @@
 			const label = anoLabelOf(l);
 			if (label) anoSet.add(label);
 		}
-		return Array.from(anoSet).sort((a, b) => {
-			const aIni = parseInt(a.split('/')[0] || '0', 10);
-			const bIni = parseInt(b.split('/')[0] || '0', 10);
-			return bIni - aIni;
-		});
+		return Array.from(anoSet)
+			.sort((a, b) => {
+				const aIni = parseInt(a.split('/')[0] || '0', 10);
+				const bIni = parseInt(b.split('/')[0] || '0', 10);
+				return bIni - aIni;
+			})
+			.slice(0, MAX_ANOS_DASHBOARD);
 	});
+
+	/** Linhas restritas aos anos do filtro (evita gráficos com demasiados anos) */
+	let linhasUltimosAnos = $derived(
+		linhas.filter((l) => {
+			const label = anoLabelOf(l);
+			return label && anosDisponiveis.includes(label);
+		})
+	);
 
 	let escolasDisponiveis = $derived.by(() => {
 		if (escolasBd.length > 0) return escolasBd.map((e) => e.nome).sort();
@@ -276,7 +287,7 @@
 	);
 
 	let chartRows = $derived(
-		filterRowsForCharts(linhas, filtroEscolaAplicada, filtroCursoAplicado)
+		filterRowsForCharts(linhasUltimosAnos, filtroEscolaAplicada, filtroCursoAplicado)
 	);
 
 	let evolutionChartData = $derived(
