@@ -4,9 +4,10 @@
 	import { pageIds } from '$lib/js/pageIds.conf';
 	import { pageTitle } from '$lib/runes/pageTitle.rune.svelte';
 	import Breadcrum from "$lib/components/Breadcrum.svelte";
-	import { invalidateAll } from '$app/navigation';
+	import { invalidate, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
+	import DgesImportModal from './DgesImportModal.svelte';
 
 	/** @returns {Promise<typeof import('toastr').default | null>} */
 	async function getToastr() {
@@ -113,6 +114,8 @@
 	 * @property {number} year3
 	 * @property {number} year4
 	 * @property {number} totalMatriculatedPerCourse
+	 * @property {string[]} [importedFields]
+	 * @property {Record<string, { ficheiroNome: string; tipoDocumento: string | null; importadoEm: string }>} [importedFieldMeta]
 	 */
 	/** @type {CourseData[]} */
 	let linhas = $derived(Array.isArray(data.linhas) ? data.linhas : []);
@@ -131,6 +134,9 @@
 	let filtroAnoAplicado = $state('all');
 	let filtroEscolaAplicada = $state('all');
 	let filtroCursoAplicado = $state('all');
+	/** @type {'all' | 'importados' | 'incompletos'} */
+	let filtroImportado = $state('all');
+	let filtroImportadoAplicado = $state('all');
 
 	/**
 	 * Navegação por "páginas" via sidebar global:
@@ -285,7 +291,11 @@
 				filtroEscolaAplicada === 'all' || l.schoolName === filtroEscolaAplicada;
 			const matchCurso =
 				filtroCursoAplicado === 'all' || l.courseName === filtroCursoAplicado;
-			return matchAno && matchEscola && matchCurso;
+			const matchImportado =
+				filtroImportadoAplicado === 'all' ||
+				(filtroImportadoAplicado === 'importados' && rowHasImportedFields(l)) ||
+				(filtroImportadoAplicado === 'incompletos' && rowIsIncompleto(l));
+			return matchAno && matchEscola && matchCurso && matchImportado;
 		});
 
 		linhasFiltradas = filtradas;
@@ -407,6 +417,71 @@
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
 	};
+
+	const CNA_IMPORTABLE_FIELDS = [
+		'vagas1F', 'candidatos1F', 'colocados1F', 'classificacaoUltimo1F',
+		'vagas2F', 'candidatos2F', 'colocados2F', 'classificacaoUltimo2F',
+		'vagas3F', 'candidatos3F', 'colocados3F', 'classificacaoUltimo3F'
+	];
+
+	/** @param {CourseData} row */
+	function rowHasImportedFields(row) {
+		const fields = row?.importedFields;
+		return Array.isArray(fields) && fields.length > 0;
+	}
+
+	/** @param {CourseData} row */
+	function rowIsIncompleto(row) {
+		const imported = new Set(row?.importedFields ?? []);
+		return CNA_IMPORTABLE_FIELDS.some((key) => {
+			if (imported.has(key)) return false;
+			const val = Number(row?.[key]);
+			return !Number.isFinite(val) || val === 0;
+		});
+	}
+
+	/** @param {CourseData} row @param {string} field */
+	function isImportedField(row, field) {
+		const fields = /** @type {string[] | undefined} */ (row.importedFields);
+		if (!fields?.length) return false;
+		if (fields.includes(field)) return true;
+		if (field === 'matriculados1F' && fields.includes('colocados1F')) return true;
+		if (field === 'matriculados2F' && fields.includes('colocados2F')) return true;
+		if (field === 'matriculados3F' && fields.includes('colocados3F')) return true;
+		return false;
+	}
+
+	/** @param {CourseData} row @param {string} field */
+	function importedCellClass(row, field) {
+		return isImportedField(row, field) ? 'cell-imported' : '';
+	}
+
+	/** @param {CourseData} row @param {string} field */
+	function importedCellTitle(row, field) {
+		const fields = /** @type {string[] | undefined} */ (row.importedFields);
+		const sourceField =
+			field.startsWith('matriculados') && !fields?.includes(field)
+				? field.replace('matriculados', 'colocados')
+				: field;
+		const meta = /** @type {Record<string, { ficheiroNome?: string; tipoDocumento?: string | null; importadoEm?: string }> | undefined} */ (
+			row.importedFieldMeta
+		)?.[sourceField];
+		if (!meta && !isImportedField(row, field)) return undefined;
+		const parts = ['Importado da DGES (statcol)'];
+		if (field.startsWith('matriculados') && sourceField !== field) {
+			parts.push('(sincronizado com colocados)');
+		}
+		if (meta?.ficheiroNome) parts.push(`Ficheiro: ${meta.ficheiroNome}`);
+		if (meta?.tipoDocumento) parts.push(`Tipo: ${meta.tipoDocumento}`);
+		if (meta?.importadoEm) {
+			try {
+				parts.push(`Em: ${new Date(meta.importadoEm).toLocaleString('pt-PT')}`);
+			} catch {
+				parts.push(`Em: ${meta.importadoEm}`);
+			}
+		}
+		return parts.join(' · ');
+	}
 
 	/** @type {{ icon_class: string; url: string; designacao: string }[]} */
 	let items_breadcrum = $derived([]);
@@ -1209,6 +1284,17 @@
 			criandoNovaTabela = false;
 		}
 	};
+
+	// Importação DGES (statcol)
+	let modalImportDges = $state(false);
+
+	function abrirImportDges() {
+		modalImportDges = true;
+	}
+
+	async function onImportDgesApplied() {
+		await invalidate('proposta-vagas:tabela');
+	}
 </script>
 
 <style>
@@ -1253,6 +1339,16 @@
 		padding: 6px 8px;
 		text-align: center;
 		vertical-align: middle;
+	}
+
+	:global(.cell-imported) {
+		color: #5a6c7d !important;
+		font-weight: 500;
+	}
+
+	.import-legend {
+		font-size: 11px;
+		color: #5a6c7d;
 	}
 
 	.table-main thead th {
@@ -1602,6 +1698,7 @@
 		border-color: #20a8d8 !important;
 		background-image: none !important;
 		color: #fff !important;
+		cursor: pointer;
 	}
 
 	.btn-search-hover:hover {
@@ -1652,6 +1749,8 @@
 		padding: 0;
 		margin: -0.25rem -0.25rem -0.25rem auto;
 		line-height: 1;
+		cursor: pointer;
+		transition: opacity 0.15s ease, color 0.15s ease;
 	}
 	.modal-editar-vagas .modal-header .close:hover {
 		opacity: 0.95;
@@ -1708,6 +1807,32 @@
 		border-radius: 8px;
 		font-weight: 500;
 		padding: 0.5rem 1rem;
+		cursor: pointer;
+		transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+			transform 0.1s ease;
+	}
+	.modal-editar-vagas .modal-footer .btn:disabled {
+		cursor: not-allowed;
+	}
+	.modal-editar-vagas .modal-footer .btn:not(:disabled):active {
+		transform: translateY(1px);
+	}
+	.modal-editar-vagas select.form-control {
+		border-radius: 10px;
+		border: 1px solid #dde3f0;
+		box-shadow: none;
+		cursor: pointer;
+	}
+	.modal-editar-vagas select.form-control:focus {
+		border-color: #0b5ed7;
+		box-shadow: 0 0 0 3px rgba(11, 94, 215, 0.12);
+	}
+	.modal-editar-vagas .form-check-input {
+		cursor: pointer;
+	}
+	.modal-editar-vagas .form-check-label {
+		cursor: pointer;
+		user-select: none;
 	}
 
 	/* Notas para a tabela do Regime Nacional */
@@ -1901,11 +2026,25 @@
 								filtroAnoAplicado = filtroAno;
 								filtroEscolaAplicada = filtroEscola;
 								filtroCursoAplicado = filtroCurso;
+								filtroImportadoAplicado = filtroImportado;
 							}}
 						>
 							<i class="fa fa-search" aria-hidden="true"></i>
 						</button>
 					</div>
+				</div>
+
+				<div class="col-12 col-md-3">
+					<label class="form-label" for="filtro-importado">Dados DGES</label>
+					<select
+						id="filtro-importado"
+						class="form-control form-control-sm"
+						bind:value={filtroImportado}
+					>
+						<option value="all">Todos os cursos</option>
+						<option value="importados">Só importados da DGES</option>
+						<option value="incompletos">Com dados por preencher</option>
+					</select>
 				</div>
 
 			</div>
@@ -1926,7 +2065,15 @@
 						Estudantes internacionais, Totais, Distribuição por ano) para expandir ou recolher as colunas de detalhe.
 					</small>
 				</div>
-				<div class="col-12 col-md-4 d-flex justify-content-md-end justify-content-sm-end mt-sm-2 mt-md-0">
+				<div class="col-12 col-md-4 d-flex flex-wrap gap-2 justify-content-md-end justify-content-sm-end mt-sm-2 mt-md-0">
+					<button
+						type="button"
+						class="btn btn-outline-primary btn-sm btn-search-hover"
+						style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
+						onclick={abrirImportDges}
+					>
+						<i class="fa fa-upload mr-1"></i> Importar DGES
+					</button>
 					<button
 						type="button"
 						class="btn btn-primary btn-sm btn-search-hover"
@@ -1937,6 +2084,9 @@
 					</button>
 				</div>
 			</div>
+			<p class="import-legend mb-2">
+				<span class="cell-imported">Cinzento</span> = valores importados da DGES (statcol).
+			</p>
 
 			{#if activeTab === 'regime-nacional' || activeTab === 'concursos'}
 				<p class="table-scroll-hint text-muted mb-1">
@@ -2107,8 +2257,8 @@
 									</div>
 								</td>
 								<!-- 1.ª fase -->
-								<td>{row.vagas1F}</td>
-								<td>{row.candidatos1F}</td>
+								<td class={importedCellClass(row, 'vagas1F')} title={importedCellTitle(row, 'vagas1F')}>{row.vagas1F}</td>
+								<td class={importedCellClass(row, 'candidatos1F')} title={importedCellTitle(row, 'candidatos1F')}>{row.candidatos1F}</td>
 									<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao1F'}
 											<input
@@ -2132,8 +2282,8 @@
 											{row.candidatos1Opcao1F}
 										{/if}
 									</td>
-								<td>{row.colocados1F}</td>
-								<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
+								<td class={importedCellClass(row, 'colocados1F')} title={importedCellTitle(row, 'colocados1F')}>{row.colocados1F}</td>
+								<td class={importedCellClass(row, 'classificacaoUltimo1F')} title={importedCellTitle(row, 'classificacaoUltimo1F')} ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo1F'}
 										<input
 											type="number"
@@ -2180,8 +2330,8 @@
 									{/if}
 								</td>
 								<!-- 2.ª fase -->
-								<td>{row.vagas2F}</td>
-								<td>{row.candidatos2F}</td>
+								<td class={importedCellClass(row, 'vagas2F')} title={importedCellTitle(row, 'vagas2F')}>{row.vagas2F}</td>
+								<td class={importedCellClass(row, 'candidatos2F')} title={importedCellTitle(row, 'candidatos2F')}>{row.candidatos2F}</td>
 								<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao2F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao2F'}
 										<input
@@ -2205,8 +2355,8 @@
 										{row.candidatos1Opcao2F}
 									{/if}
 								</td>
-								<td>{row.colocados2F}</td>
-								<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
+								<td class={importedCellClass(row, 'colocados2F')} title={importedCellTitle(row, 'colocados2F')}>{row.colocados2F}</td>
+								<td class={importedCellClass(row, 'classificacaoUltimo2F')} title={importedCellTitle(row, 'classificacaoUltimo2F')} ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo2F'}
 										<input
 											type="number"
@@ -2230,7 +2380,7 @@
 									{/if}
 								</td>
 								<!-- 3.ª fase -->
-								<td>{row.vagas3F}</td>
+								<td class={importedCellClass(row, 'vagas3F')} title={importedCellTitle(row, 'vagas3F')}>{row.vagas3F}</td>
 								<td ondblclick={() => beginInlineEdit(row, 'vagasEfetivas3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'vagasEfetivas3F'}
 										<input
@@ -2254,7 +2404,7 @@
 										{row.vagasEfetivas3F}
 									{/if}
 								</td>
-								<td>{row.candidatos3F}</td>
+								<td class={importedCellClass(row, 'candidatos3F')} title={importedCellTitle(row, 'candidatos3F')}>{row.candidatos3F}</td>
 								<td ondblclick={() => beginInlineEdit(row, 'candidatos1Opcao3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1Opcao3F'}
 										<input
@@ -2278,8 +2428,8 @@
 										{row.candidatos1Opcao3F}
 									{/if}
 								</td>
-								<td>{row.colocados3F}</td>
-								<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
+								<td class={importedCellClass(row, 'colocados3F')} title={importedCellTitle(row, 'colocados3F')}>{row.colocados3F}</td>
+								<td class={importedCellClass(row, 'classificacaoUltimo3F')} title={importedCellTitle(row, 'classificacaoUltimo3F')} ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo3F'}
 										<input
 											type="number"
@@ -2306,7 +2456,7 @@
 								<td class="formula-cell">{row.totalCandidatosCna}</td>
 								<td class="formula-cell">{cnaColocadosTotal(row)}</td>
 								<!-- Matriculados por fase + total -->
-								<td ondblclick={() => beginInlineEdit(row, 'matriculados1F')}>
+								<td ondblclick={() => beginInlineEdit(row, 'matriculados1F')} class={importedCellClass(row, 'matriculados1F')} title={importedCellTitle(row, 'matriculados1F')}>
 									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados1F'}
 										<input
 											type="number"
@@ -2329,7 +2479,11 @@
 										{row.matriculados1F}
 									{/if}
 								</td>
-								<td ondblclick={() => beginInlineEdit(row, 'matriculados2F')}>
+								<td
+									ondblclick={() => beginInlineEdit(row, 'matriculados2F')}
+									class={importedCellClass(row, 'matriculados2F')}
+									title={importedCellTitle(row, 'matriculados2F')}
+								>
 									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados2F'}
 										<input
 											type="number"
@@ -2352,7 +2506,11 @@
 										{row.matriculados2F}
 									{/if}
 								</td>
-								<td ondblclick={() => beginInlineEdit(row, 'matriculados3F')}>
+								<td
+									ondblclick={() => beginInlineEdit(row, 'matriculados3F')}
+									class={importedCellClass(row, 'matriculados3F')}
+									title={importedCellTitle(row, 'matriculados3F')}
+								>
 									{#if inlineEditRowId === row.id && inlineEditField === 'matriculados3F'}
 										<input
 											type="number"
@@ -2724,7 +2882,11 @@
 								</td>
 
 								{#if activeTab === 'regime-nacional'}
-									<td ondblclick={() => beginInlineEdit(row, 'vagas1F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'vagas1F')}
+										class={importedCellClass(row, 'vagas1F')}
+										title={importedCellTitle(row, 'vagas1F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagas1F'}
 											<input
 												type="number"
@@ -2747,7 +2909,11 @@
 											{row.vagas1F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'candidatos1F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'candidatos1F')}
+										class={importedCellClass(row, 'candidatos1F')}
+										title={importedCellTitle(row, 'candidatos1F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos1F'}
 											<input
 												type="number"
@@ -2793,7 +2959,11 @@
 											{row.candidatos1Opcao1F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'colocados1F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'colocados1F')}
+										class={importedCellClass(row, 'colocados1F')}
+										title={importedCellTitle(row, 'colocados1F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'colocados1F'}
 											<input
 												type="number"
@@ -2816,7 +2986,7 @@
 											{row.colocados1F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
+									<td class={importedCellClass(row, 'classificacaoUltimo1F')} title={importedCellTitle(row, 'classificacaoUltimo1F')} ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo1F'}
 											<input
 												type="number"
@@ -2862,7 +3032,11 @@
 											{row.mediaEntrada1F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'vagas2F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'vagas2F')}
+										class={importedCellClass(row, 'vagas2F')}
+										title={importedCellTitle(row, 'vagas2F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagas2F'}
 											<input
 												type="number"
@@ -2885,7 +3059,11 @@
 											{row.vagas2F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'candidatos2F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'candidatos2F')}
+										class={importedCellClass(row, 'candidatos2F')}
+										title={importedCellTitle(row, 'candidatos2F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos2F'}
 											<input
 												type="number"
@@ -2931,7 +3109,11 @@
 											{row.candidatos1Opcao2F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'colocados2F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'colocados2F')}
+										class={importedCellClass(row, 'colocados2F')}
+										title={importedCellTitle(row, 'colocados2F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'colocados2F'}
 											<input
 												type="number"
@@ -2954,7 +3136,7 @@
 											{row.colocados2F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
+									<td class={importedCellClass(row, 'classificacaoUltimo2F')} title={importedCellTitle(row, 'classificacaoUltimo2F')} ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo2F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo2F'}
 											<input
 												type="number"
@@ -2977,7 +3159,11 @@
 											{row.classificacaoUltimo2F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'vagas3F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'vagas3F')}
+										class={importedCellClass(row, 'vagas3F')}
+										title={importedCellTitle(row, 'vagas3F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'vagas3F'}
 											<input
 												type="number"
@@ -3023,7 +3209,11 @@
 											{row.vagasEfetivas3F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'candidatos3F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'candidatos3F')}
+										class={importedCellClass(row, 'candidatos3F')}
+										title={importedCellTitle(row, 'candidatos3F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'candidatos3F'}
 											<input
 												type="number"
@@ -3069,7 +3259,11 @@
 											{row.candidatos1Opcao3F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'colocados3F')}>
+									<td
+										ondblclick={() => beginInlineEdit(row, 'colocados3F')}
+										class={importedCellClass(row, 'colocados3F')}
+										title={importedCellTitle(row, 'colocados3F')}
+									>
 										{#if inlineEditRowId === row.id && inlineEditField === 'colocados3F'}
 											<input
 												type="number"
@@ -3092,7 +3286,7 @@
 											{row.colocados3F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
+									<td class={importedCellClass(row, 'classificacaoUltimo3F')} title={importedCellTitle(row, 'classificacaoUltimo3F')} ondblclick={() => beginInlineEdit(row, 'classificacaoUltimo3F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'classificacaoUltimo3F'}
 											<input
 												type="number"
@@ -3119,7 +3313,7 @@
 									<td class="formula-cell">
 										{cnaColocadosTotal(row)}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'matriculados1F')}>
+									<td ondblclick={() => beginInlineEdit(row, 'matriculados1F')} class={importedCellClass(row, 'matriculados1F')} title={importedCellTitle(row, 'matriculados1F')}>
 										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados1F'}
 											<input
 												type="number"
@@ -3142,7 +3336,11 @@
 											{row.matriculados1F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'matriculados2F')}>
+									<td
+									ondblclick={() => beginInlineEdit(row, 'matriculados2F')}
+									class={importedCellClass(row, 'matriculados2F')}
+									title={importedCellTitle(row, 'matriculados2F')}
+								>
 										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados2F'}
 											<input
 												type="number"
@@ -3165,7 +3363,11 @@
 											{row.matriculados2F}
 										{/if}
 									</td>
-									<td ondblclick={() => beginInlineEdit(row, 'matriculados3F')}>
+									<td
+									ondblclick={() => beginInlineEdit(row, 'matriculados3F')}
+									class={importedCellClass(row, 'matriculados3F')}
+									title={importedCellTitle(row, 'matriculados3F')}
+								>
 										{#if inlineEditRowId === row.id && inlineEditField === 'matriculados3F'}
 											<input
 												type="number"
@@ -3616,10 +3818,10 @@
 									</td>
 									<td class="formula-cell">{row.totalMatriculatedPerCourse}</td>
 								{:else}
-									<td>{row.vagas1F}</td>
-									<td>{row.candidatos1F}</td>
-									<td>{row.colocados1F}</td>
-									<td>{row.matriculados1F}</td>
+									<td class={importedCellClass(row, 'vagas1F')} title={importedCellTitle(row, 'vagas1F')}>{row.vagas1F}</td>
+									<td class={importedCellClass(row, 'candidatos1F')} title={importedCellTitle(row, 'candidatos1F')}>{row.candidatos1F}</td>
+									<td class={importedCellClass(row, 'colocados1F')} title={importedCellTitle(row, 'colocados1F')}>{row.colocados1F}</td>
+									<td class={importedCellClass(row, 'matriculados1F')} title={importedCellTitle(row, 'matriculados1F')}>{row.matriculados1F}</td>
 								{/if}
 
 								<td class="col-acoes" onclick={(e) => e.stopPropagation()}>
@@ -4213,6 +4415,13 @@
 				</div>
 			</div>
 		{/if}
+
+		<DgesImportModal
+			bind:open={modalImportDges}
+			{anosDisponiveis}
+			defaultAno={filtroAnoAplicado !== 'all' ? filtroAnoAplicado : (anosDisponiveis[0] ?? '')}
+			onApplied={onImportDgesApplied}
+		/>
 	</div>
 </div>
 

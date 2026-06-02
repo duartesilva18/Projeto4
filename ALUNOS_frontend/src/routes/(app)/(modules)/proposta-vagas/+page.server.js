@@ -2,7 +2,8 @@ import { PUBLIC_API_URL } from "$env/static/public";
 import { setupTranslations } from "./translations";
 
 /** @type {import('./$types').PageServerLoad} */
-export async function load() {
+export async function load({ depends }) {
+    depends('proposta-vagas:tabela');
     setupTranslations();
 
     const fetchJson = async (path) => {

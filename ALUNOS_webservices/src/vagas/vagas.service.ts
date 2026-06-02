@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { DgesImportPreview } from './import/dges-statcol.types';
+import { derivedMatriculadosFieldKey } from './import/dges-statcol.field-map';
+import { applyDgesFieldUpdates } from './import/dges-statcol.apply';
 
 @Injectable()
 export class VagasService {
@@ -125,6 +128,13 @@ export class VagasService {
       ].every((x) => x === undefined)
     ) {
       return { ok: true, updated: 0 };
+    }
+
+    const manualFieldKeys = Object.keys(body).filter(
+      (k) => (body as Record<string, unknown>)[k] !== undefined
+    );
+    if (manualFieldKeys.length > 0) {
+      await this.clearCampoOrigemForFields(idCursoOferta, anoColocacao, manualFieldKeys);
     }
 
     const fase1Frag = (v1 !== undefined || c1 !== undefined || l1 !== undefined || opc1 !== undefined || class1 !== undefined || media1 !== undefined)
@@ -1088,7 +1098,7 @@ export class VagasService {
     return { ok: true };
   }
 
-  async listarResumoTabela() {
+  async listarResumoTabela(anoInicio?: number) {
     // Para já usamos diretamente a view agregada definida em bd.sql:
     // vagas.vw_resumo_cna_por_curso
     const rows: any[] = await this.prisma.$queryRaw`SELECT
@@ -1306,7 +1316,7 @@ export class VagasService {
        ) mud
               ON mud.id_curso_oferta = cna.id_curso_oferta
              AND mud.ano_colocacao = cna.ano_colocacao
-
+       ${anoInicio != null ? Prisma.sql`WHERE cna.ano_letivo_inicio = ${anoInicio}` : Prisma.empty}
        ORDER BY cna.ano_letivo_inicio DESC, cna.nome_escola, cna.nome_curso`;
 
     // Mapear para estrutura tipo CourseData do mockup
@@ -1336,6 +1346,7 @@ export class VagasService {
         courseCode: row.codigo_dges,
         courseName: row.nome_curso,
         schoolName: row.nome_escola,
+        schoolCode: row.codigo_escola,
         anoLetivoInicio: row.ano_letivo_inicio,
         anoLetivoFim: row.ano_letivo_fim,
 
@@ -1438,11 +1449,188 @@ export class VagasService {
         year4: row.matriculados_4ano || 0,
         totalMatriculatedPerCourse: row.total_matriculados_curso || 0,
 
-        isEdited: false
+        isEdited: false,
+        importedFields: [] as string[],
+        importedFieldMeta: {} as Record<
+          string,
+          { ficheiroNome: string; tipoDocumento: string | null; importadoEm: string }
+        >
       };
     });
 
+    const { fieldsMap, metaMap } = await this.loadImportedFieldsData(anoInicio);
+    for (const item of mapped) {
+      item.importedFields = fieldsMap.get(item.id) ?? [];
+      item.importedFieldMeta = metaMap.get(item.id) ?? {};
+    }
+
     return mapped;
+  }
+
+  /** Linhas da tabela para matching na importação DGES (filtradas por ano na query SQL) */
+  async listarResumoTabelaForImport(anoInicio: number) {
+    return this.listarResumoTabela(anoInicio);
+  }
+
+  async anoLetivoExists(anoInicio: number): Promise<boolean> {
+    const rows: { ok: number }[] = await this.prisma.$queryRaw`
+      SELECT TOP 1 1 AS ok FROM vagas.ano_letivo WHERE ano_inicio = ${anoInicio}
+    `;
+    return rows.length > 0;
+  }
+
+  async assertAnoLetivoExists(anoInicio: number): Promise<void> {
+    if (!(await this.anoLetivoExists(anoInicio))) {
+      throw new BadRequestException(
+        `Ano letivo ${anoInicio}/${anoInicio + 1} não existe na base de dados.`
+      );
+    }
+  }
+
+  private async loadImportedFieldsData(anoColocacao?: number): Promise<{
+    fieldsMap: Map<string, string[]>;
+    metaMap: Map<string, Record<string, { ficheiroNome: string; tipoDocumento: string | null; importadoEm: string }>>;
+  }> {
+    const fieldsMap = new Map<string, string[]>();
+    const metaMap = new Map<
+      string,
+      Record<string, { ficheiroNome: string; tipoDocumento: string | null; importadoEm: string }>
+    >();
+
+    const rows: {
+      id_curso_oferta: number;
+      ano_colocacao: number;
+      chave_campo: string;
+      tipo_documento: string | null;
+      ficheiro_nome: string | null;
+      importado_em: Date;
+    }[] =
+      anoColocacao != null
+        ? await this.prisma.$queryRaw`
+            SELECT id_curso_oferta, ano_colocacao, chave_campo, tipo_documento, ficheiro_nome, importado_em
+            FROM vagas.campo_origem
+            WHERE ano_colocacao = ${anoColocacao}
+          `
+        : await this.prisma.$queryRaw`
+            SELECT id_curso_oferta, ano_colocacao, chave_campo, tipo_documento, ficheiro_nome, importado_em
+            FROM vagas.campo_origem
+          `;
+
+    for (const r of rows) {
+      const key = `${r.id_curso_oferta}-${r.ano_colocacao}`;
+      const list = fieldsMap.get(key) ?? [];
+      list.push(r.chave_campo);
+      fieldsMap.set(key, list);
+
+      const meta = metaMap.get(key) ?? {};
+      meta[r.chave_campo] = {
+        ficheiroNome: r.ficheiro_nome ?? '',
+        tipoDocumento: r.tipo_documento,
+        importadoEm: r.importado_em?.toISOString?.() ?? String(r.importado_em)
+      };
+      metaMap.set(key, meta);
+    }
+
+    return { fieldsMap, metaMap };
+  }
+
+  private async clearCampoOrigemForFields(
+    idCursoOferta: number,
+    anoColocacao: number,
+    fieldKeys: string[]
+  ) {
+    if (fieldKeys.length === 0) return;
+    for (const chave of fieldKeys) {
+      await this.prisma.$executeRaw`
+        DELETE FROM vagas.campo_origem
+        WHERE id_curso_oferta = ${idCursoOferta}
+          AND ano_colocacao = ${anoColocacao}
+          AND chave_campo = ${chave}
+      `;
+    }
+  }
+
+  private async markCampoImportado(
+    idCursoOferta: number,
+    anoColocacao: number,
+    chaveCampo: string,
+    tipoDocumento: string,
+    ficheiroNome: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx ?? this.prisma;
+    await db.$executeRaw`
+      MERGE vagas.campo_origem AS target
+      USING (SELECT ${idCursoOferta} AS id_curso_oferta, ${anoColocacao} AS ano_colocacao, ${chaveCampo} AS chave_campo) AS src
+      ON target.id_curso_oferta = src.id_curso_oferta
+         AND target.ano_colocacao = src.ano_colocacao
+         AND target.chave_campo = src.chave_campo
+      WHEN MATCHED THEN
+        UPDATE SET origem = 'DGES_STATCOL',
+                   tipo_documento = ${tipoDocumento},
+                   ficheiro_nome = ${ficheiroNome.slice(0, 255)},
+                   importado_em = SYSUTCDATETIME()
+      WHEN NOT MATCHED THEN
+        INSERT (id_curso_oferta, ano_colocacao, chave_campo, origem, tipo_documento, ficheiro_nome)
+        VALUES (${idCursoOferta}, ${anoColocacao}, ${chaveCampo}, 'DGES_STATCOL', ${tipoDocumento}, ${ficheiroNome.slice(0, 255)});
+    `;
+  }
+
+  async applyDgesImportPreview(preview: DgesImportPreview) {
+    return this.prisma.$transaction(async (tx) => {
+      let updatedFields = 0;
+      const updatedCourses = new Set<string>();
+
+      for (const file of preview.files) {
+        const docType = file.tipoOverride ?? file.detection.tipo;
+        for (const match of file.matched) {
+          const body: Record<string, number> = {};
+          for (const field of match.fields) {
+            if (field.skipped) continue;
+            body[field.fieldKey] = field.newValue;
+          }
+          if (Object.keys(body).length === 0) continue;
+
+          const [idCursoOfertaStr, anoStr] = match.rowId.split('-');
+          const idCursoOferta = Number(idCursoOfertaStr);
+          const anoColocacao = Number(anoStr);
+
+          await applyDgesFieldUpdates(tx, idCursoOferta, anoColocacao, body);
+
+          for (const field of match.fields) {
+            if (field.skipped) continue;
+            await this.markCampoImportado(
+              idCursoOferta,
+              anoColocacao,
+              field.fieldKey,
+              docType,
+              file.fileName,
+              tx
+            );
+            updatedFields++;
+
+            const matKey = derivedMatriculadosFieldKey(field.fieldKey);
+            if (matKey) {
+              await this.markCampoImportado(
+                idCursoOferta,
+                anoColocacao,
+                matKey,
+                docType,
+                file.fileName,
+                tx
+              );
+            }
+          }
+          updatedCourses.add(match.rowId);
+        }
+      }
+
+      return {
+        ok: true,
+        updatedFields,
+        updatedCourses: updatedCourses.size
+      };
+    });
   }
 
   async listarEscolas() {
