@@ -140,14 +140,59 @@
 		pageIndex = 0;
 	});
 
+	$effect(() => {
+		if (optCurso !== 'all' && !cursosDisponiveis.includes(optCurso)) {
+			optCurso = 'all';
+		}
+	});
+
+	$effect(() => {
+		sortModeAplicado = sortMode;
+	});
+
+	/** @param {string} label */
+	function anoInicioFromLabel(label) {
+		if (!label) return null;
+		const n = parseInt(String(label).split('/')[0] || '', 10);
+		return Number.isFinite(n) ? n : null;
+	}
+
+	/** @param {string} a @param {string} b @param {string} c */
+	function validarAnos(a, b, c) {
+		const filled = [a, b, c].filter(Boolean);
+		if (filled.length !== new Set(filled).size) {
+			return 'Os anos A, B e C têm de ser diferentes.';
+		}
+		const ia = anoInicioFromLabel(a);
+		const ib = anoInicioFromLabel(b);
+		const ic = anoInicioFromLabel(c);
+		if (a && b && ia != null && ib != null && ia > ib) {
+			return 'Ordem cronológica: A (mais antigo) ≤ B ≤ C (mais recente).';
+		}
+		if (b && c && ib != null && ic != null && ib > ic) {
+			return 'Ordem cronológica: A (mais antigo) ≤ B ≤ C (mais recente).';
+		}
+		if (a && c && !b && ia != null && ic != null && ia > ic) {
+			return 'Ordem cronológica: A (mais antigo) ≤ C (mais recente).';
+		}
+		return '';
+	}
+
+	let avisoAnosInvalidos = $derived.by(() => validarAnos(anoA, anoB, anoC));
+
 	function aplicarFiltros() {
+		if (validarAnos(anoA, anoB, anoC)) return;
 		anoAAplicado = anoA;
 		anoBAplicado = anoB;
 		anoCAplicado = anoC;
 		aplicadoEscola = optEscola;
-		aplicadoCurso = optCurso;
+		let curso = optCurso;
+		if (curso !== 'all' && !cursosDisponiveis.includes(curso)) {
+			curso = 'all';
+			optCurso = 'all';
+		}
+		aplicadoCurso = curso;
 		pesquisaAplicada = pesquisaTexto;
-		sortModeAplicado = sortMode;
 		pageIndex = 0;
 	}
 
@@ -192,7 +237,9 @@
 	/** @param {number | null} v @param {string} key */
 	function formatCell(v, key) {
 		if (v === null) return '—';
-		if (key === 'percOcupacaoCna') return v.toLocaleString('pt-PT', { maximumFractionDigits: 1 });
+		if (key === 'percOcupacaoCna') {
+			return `${v.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`;
+		}
 		if (Number.isInteger(v)) return String(v);
 		return v.toLocaleString('pt-PT', { maximumFractionDigits: 2 });
 	}
@@ -341,18 +388,18 @@
 	let compareSubtitle = $derived.by(() => {
 		const parts = [];
 		if (anoAAplicado && anoBAplicado && anoAAplicado !== anoBAplicado) {
-			parts.push(`Δ₁ = (${anoBAplicado}) − (${anoAAplicado})`);
+			parts.push(`B−A = (${anoBAplicado}) − (${anoAAplicado})`);
 		}
 		if (anoBAplicado && anoCAplicado && anoBAplicado !== anoCAplicado) {
-			parts.push(`Δ₂ = (${anoCAplicado}) − (${anoBAplicado})`);
+			parts.push(`C−B = (${anoCAplicado}) − (${anoBAplicado})`);
 		}
 		return parts.join(' · ');
 	});
 
 	let avisoAnosInsuficientes = $derived.by(() => {
 		const n = anosDisponiveis.length;
-		if (n === 1) return 'Só existe um ano letivo. Os campos B, C, Δ₁ e Δ₂ aparecem como "—".';
-		if (n === 2) return 'Só existem dois anos letivos. O ano C e Δ₂ aparecem como "—".';
+		if (n === 1) return 'Só há 1 ano — colunas B, C e variações ficam vazias.';
+		if (n === 2) return 'Só há 2 anos — coluna C e C−B ficam vazias.';
 		return '';
 	});
 </script>
@@ -360,15 +407,14 @@
 <Breadcrum modulo="Proposta de Vagas" objeto="Comparar anos" />
 
 <div class="container-fluid comparar-anos-wrap">
-	<p class="text-muted small mb-3">
-		Comparação entre <strong>três anos letivos</strong> (A, B e C), com <strong>indicadores principais</strong>.
-		<strong>Δ₁ = (B) − (A)</strong> e <strong>Δ₂ = (C) − (B)</strong>.
-		Altera os filtros e clica na <strong>lupa</strong> para atualizar a tabela.
+	<p class="cmp-lead">
+		Compara <strong>curso a curso</strong> em até 3 anos letivos (A → B → C).
+		<span class="cmp-lead-sub">B−A · C−B · lupa para aplicar filtros</span>
 	</p>
 
 	<div class="row g-2 align-items-end mb-3 filter-row filter-controls">
 		<div class="col-6 col-md-2">
-			<label class="form-label" for="cmp-ano-a">Ano A</label>
+			<label class="form-label" for="cmp-ano-a" title="Ano mais antigo">Ano A</label>
 			<select id="cmp-ano-a" class="form-control form-control-sm" bind:value={anoA}>
 				{#if anosDisponiveis.length === 0}
 					<option value="">—</option>
@@ -381,7 +427,7 @@
 			</select>
 		</div>
 		<div class="col-6 col-md-2">
-			<label class="form-label" for="cmp-ano-b">Ano B</label>
+			<label class="form-label" for="cmp-ano-b" title="Ano intermédio">Ano B</label>
 			<select id="cmp-ano-b" class="form-control form-control-sm" bind:value={anoB}>
 				{#if anosDisponiveis.length === 0}
 					<option value="">—</option>
@@ -394,7 +440,7 @@
 			</select>
 		</div>
 		<div class="col-6 col-md-2">
-			<label class="form-label" for="cmp-ano-c">Ano C</label>
+			<label class="form-label" for="cmp-ano-c" title="Ano mais recente">Ano C</label>
 			<select id="cmp-ano-c" class="form-control form-control-sm" bind:value={anoC}>
 				{#if anosDisponiveis.length === 0}
 					<option value="">—</option>
@@ -407,13 +453,13 @@
 			</select>
 		</div>
 		<div class="col-12 col-md-3">
-			<label class="form-label mb-1" for="cmp-pesquisa">Filtrar linhas (texto)</label>
+			<label class="form-label mb-1" for="cmp-pesquisa">Pesquisar curso</label>
 			<div class="d-flex align-items-end">
 				<input
 					id="cmp-pesquisa"
 					type="search"
 					class="form-control form-control-sm cmp-search-input"
-					placeholder="Escola, curso ou código DGES…"
+					placeholder="Escola, curso ou código…"
 					bind:value={pesquisaTexto}
 					autocomplete="off"
 					onkeydown={(e) => {
@@ -424,6 +470,7 @@
 					type="button"
 					class="btn btn-primary btn-sm filter-apply-icon"
 					aria-label="Aplicar filtros"
+					disabled={!!avisoAnosInvalidos}
 					onclick={aplicarFiltros}
 				>
 					<i class="fa fa-search" aria-hidden="true"></i>
@@ -432,9 +479,13 @@
 		</div>
 	</div>
 
+	{#if avisoAnosInvalidos}
+		<div class="alert alert-warning py-2 mb-3">{avisoAnosInvalidos}</div>
+	{/if}
+
 	<div class="card mb-3 metric-card">
 		<div class="card-body py-3">
-			<span class="form-label d-block mb-2">Indicador principal</span>
+			<span class="form-label d-block mb-2">Indicador</span>
 			<div class="d-flex flex-wrap gap-1">
 				{#each METRIC_PRINCIPAIS as q}
 					<button
@@ -446,15 +497,12 @@
 					</button>
 				{/each}
 			</div>
-			<p class="small text-muted mt-2 mb-0">
-				<strong>A comparar:</strong> {metricMeta.label}
-			</p>
 		</div>
 	</div>
 
 	<details class="cmp-details mb-3">
 		<summary class="cmp-details-summary">
-			Filtros opcionais <span class="cmp-details-summary-sub">(escola, curso, ordenação)</span>
+			Filtros <span class="cmp-details-summary-sub">(escola, curso, ordenação)</span>
 		</summary>
 		<div class="cmp-details-panel">
 			<div class="row g-3 cmp-details-grid align-items-end">
@@ -479,9 +527,9 @@
 				<div class="col-12 col-md-4 col-lg-3">
 					<label class="form-label cmp-details-label" for="cmp-sort">Ordenação</label>
 					<select id="cmp-sort" class="form-control form-control-sm cmp-details-select" bind:value={sortMode}>
-						<option value="abs_desc">Maior |Δ₁| ou |Δ₂| primeiro</option>
-						<option value="abs_asc">Menor |Δ₁| ou |Δ₂| primeiro</option>
-						<option value="nome">Nome (escola, curso)</option>
+						<option value="abs_desc">Maior variação primeiro</option>
+						<option value="abs_asc">Menor variação primeiro</option>
+						<option value="nome">Escola / curso (A–Z)</option>
 					</select>
 				</div>
 				<div class="col-12 col-lg-auto d-flex align-items-end">
@@ -490,26 +538,24 @@
 						class="btn btn-primary btn-sm cmp-details-apply filter-apply-icon"
 						title="Aplicar filtros"
 						aria-label="Aplicar filtros"
+						disabled={!!avisoAnosInvalidos}
 						onclick={aplicarFiltros}
 					>
 						<i class="fa fa-search" aria-hidden="true"></i>
 					</button>
 				</div>
 			</div>
-			<p class="cmp-details-hint">
-				Por defeito comparam-se <strong>todos os cursos</strong>. Os filtros só afetam a tabela após clicar no botão da
-				<strong>lupa</strong>.
-			</p>
+			<p class="cmp-details-hint">Por defeito: todos os cursos. Clica na lupa para aplicar.</p>
 		</div>
 	</details>
 
 	{#if anosDisponiveis.length === 0}
 		<div class="text-center text-muted py-5">
 			<i class="fa fa-info-circle fa-2x mb-2"></i>
-			<p class="mb-0">Não há dados na tabela de vagas para comparar.</p>
+			<p class="mb-0">Sem dados para comparar.</p>
 		</div>
 	{:else if !anoAAplicado && !anoBAplicado && !anoCAplicado}
-		<div class="alert alert-info">Escolhe pelo menos um ano letivo (A, B ou C) e clica na lupa.</div>
+		<div class="alert alert-info py-2 mb-3">Escolhe pelo menos um ano e clica na lupa.</div>
 	{:else}
 		{#if avisoAnosInsuficientes}
 			<div class="alert alert-warning py-2 mb-3">{avisoAnosInsuficientes}</div>
@@ -572,18 +618,18 @@
 						<thead>
 							<tr>
 								<th class="header-main" colspan="8">
-									{metricMeta.label}{#if compareSubtitle} · {compareSubtitle}{/if}
+									{metricMeta.label} · por curso{#if compareSubtitle} · {compareSubtitle}{/if}
 								</th>
 							</tr>
 							<tr>
 								<th class="header-col text-left">Escola</th>
 								<th class="header-col text-left">Curso</th>
 								<th class="header-col">Cód.</th>
-								<th class="header-col">{anoAAplicado || '—'}</th>
-								<th class="header-col">{anoBAplicado || '—'}</th>
-								<th class="header-col">{anoCAplicado || '—'}</th>
-								<th class="header-col">Δ₁</th>
-								<th class="header-col">Δ₂</th>
+								<th class="header-col" title="Ano mais antigo">{anoAAplicado || '—'}</th>
+								<th class="header-col" title="Ano intermédio">{anoBAplicado || '—'}</th>
+								<th class="header-col" title="Ano mais recente">{anoCAplicado || '—'}</th>
+								<th class="header-col" title="Variação B − A">B−A</th>
+								<th class="header-col" title="Variação C − B">C−B</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -633,6 +679,19 @@
 <style>
 	.comparar-anos-wrap {
 		padding: 24px;
+	}
+	.cmp-lead {
+		font-size: 13px;
+		color: #495057;
+		margin-bottom: 16px;
+		line-height: 1.5;
+	}
+	.cmp-lead-sub {
+		display: block;
+		margin-top: 4px;
+		font-size: 12px;
+		color: #6c757d;
+		font-weight: 400;
 	}
 	.filter-row .form-label,
 	.metric-card .form-label {

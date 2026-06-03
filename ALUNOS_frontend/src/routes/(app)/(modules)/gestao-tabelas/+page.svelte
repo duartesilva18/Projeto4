@@ -8,7 +8,7 @@
 	/** @type {{ data: import('./$types').PageData }} */
 	let { data } = $props();
 
-	/** @typedef {{ anoInicio: number, anoFim: number, label: string, totalCursos: number, temDados: boolean }} AnoItem */
+	/** @typedef {{ anoInicio: number, anoFim: number, label: string, totalCursos: number, temDados: boolean, totalDadosInseridos: number, totalCamposDges: number, totalCursosDges: number }} AnoItem */
 	/** @type {AnoItem[]} */
 	let anos = $derived(data.anos ?? []);
 
@@ -21,6 +21,64 @@
 	});
 
 
+
+	let criandoNovaTabela = $state(false);
+	let modalConfirmNovoAno = $state(false);
+	let anoNovoParaCriar = $state('');
+	let modalConfirmNovoAnoLoading = $state(false);
+
+	function fecharConfirmNovoAno() {
+		if (criandoNovaTabela) return;
+		modalConfirmNovoAno = false;
+		modalConfirmNovoAnoLoading = false;
+	}
+
+	async function abrirConfirmNovoAno() {
+		if (criandoNovaTabela) return;
+		anoNovoParaCriar = '';
+		modalConfirmNovoAnoLoading = true;
+		modalConfirmNovoAno = true;
+		try {
+			const res = await fetch('/ep/api/vagas/novo-ano', { method: 'GET' });
+			if (res.ok) {
+				const payload = await res.json();
+				const ano = payload?.ano;
+				if (ano && typeof ano.ano_inicio === 'number' && typeof ano.ano_fim === 'number') {
+					anoNovoParaCriar = `${ano.ano_inicio}/${ano.ano_fim}`;
+				}
+			}
+		} catch (e) {
+			console.error('Erro ao obter próximo ano letivo', e);
+		} finally {
+			modalConfirmNovoAnoLoading = false;
+		}
+	}
+
+	async function confirmarCriarNovaTabela() {
+		if (criandoNovaTabela) return;
+		modalConfirmNovoAno = false;
+		criandoNovaTabela = true;
+		try {
+			const res = await fetch('/ep/api/vagas/novo-ano', { method: 'POST' });
+			if (!res.ok) {
+				toastr.error('Ocorreu um erro ao criar a nova tabela.', 'ERRO', { timeOut: 5000 });
+				return;
+			}
+			toastr.success(
+				anoNovoParaCriar
+					? `Ano letivo ${anoNovoParaCriar} criado com sucesso!`
+					: 'Nova tabela criada com sucesso!',
+				'SUCESSO',
+				{ timeOut: 5000, progressBar: true }
+			);
+			await invalidateAll();
+		} catch (e) {
+			console.error('Erro a criar novo ano letivo', e);
+			toastr.error('Erro de comunicação com o servidor.', 'ERRO', { timeOut: 5000 });
+		} finally {
+			criandoNovaTabela = false;
+		}
+	}
 
 	let modalVisible = $state(false);
 	/** @type {'reset' | 'delete' | null} */
@@ -77,7 +135,24 @@
 	}
 </script>
 
-<Breadcrum modulo="Proposta de Vagas" objeto="Gestão de Tabelas" />
+<Breadcrum modulo="Proposta de Vagas" objeto="Gestão de Tabelas">
+	<svelte:fragment slot="actions">
+		<button
+			type="button"
+			class="btn botao-breadcrumb-on btn-sm fw-bold btn-search-hover"
+			style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
+			disabled={criandoNovaTabela}
+			onclick={abrirConfirmNovoAno}
+		>
+			{#if criandoNovaTabela}
+				<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+				A criar...
+			{:else}
+				<i class="fa fa-plus mr-1"></i> Nova tabela
+			{/if}
+		</button>
+	</svelte:fragment>
+</Breadcrum>
 
 <div class="container-fluid" style="padding: 24px;">
 	<div class="table-wrapper">
@@ -90,11 +165,13 @@
 			<table class="gestao-table">
 				<thead>
 					<tr>
-						<th class="header-main" colspan="4">Gestão de Tabelas (Anos Letivos)</th>
+						<th class="header-main" colspan="6">Gestão de Tabelas (Anos Letivos)</th>
 					</tr>
 					<tr>
 						<th class="header-col">Ano Letivo</th>
 						<th class="header-col">N.º Cursos</th>
+						<th class="header-col">Total dados inseridos</th>
+						<th class="header-col">Dados importados DGES</th>
 						<th class="header-col">Estado</th>
 						<th class="header-col">Ações</th>
 					</tr>
@@ -104,6 +181,31 @@
 						<tr class={idx % 2 === 0 ? 'row-even' : 'row-odd'}>
 							<td class="td-ano">{ano.label}</td>
 							<td>{ano.totalCursos}</td>
+							<td class="td-dados">
+								{#if ano.totalDadosInseridos > 0}
+									<span
+										class="badge-dados"
+										title="{ano.totalDadosInseridos} valor{ano.totalDadosInseridos === 1 ? '' : 'es'} preenchido{ano.totalDadosInseridos === 1 ? '' : 's'} na tabela"
+									>
+										{ano.totalDadosInseridos}
+									</span>
+								{:else}
+									<span class="badge-dados-zero">0</span>
+								{/if}
+							</td>
+							<td class="td-dges">
+								{#if ano.totalCamposDges > 0}
+									<span
+										class="badge-dges"
+										title="{ano.totalCamposDges} campo{ano.totalCamposDges === 1 ? '' : 's'} importado{ano.totalCamposDges === 1 ? '' : 's'} em {ano.totalCursosDges} curso{ano.totalCursosDges === 1 ? '' : 's'}"
+									>
+										{ano.totalCamposDges} campo{ano.totalCamposDges === 1 ? '' : 's'}
+										<span class="badge-dges-sub">({ano.totalCursosDges} curso{ano.totalCursosDges === 1 ? '' : 's'})</span>
+									</span>
+								{:else}
+									<span class="badge-dges-zero">0</span>
+								{/if}
+							</td>
 							<td>
 								{#if ano.temDados}
 									<span class="badge-com-dados">Com dados</span>
@@ -138,10 +240,61 @@
 		<i class="fa fa-info-circle mr-1"></i>
 		<strong>Limpar dados</strong> — coloca todos os valores numéricos a 0, mas mantém a estrutura (cursos e ano letivo).
 		<br/>
+		<i class="fa fa-info-circle mr-1"></i>
+		<strong>Total dados inseridos</strong> — número de valores preenchidos (≠ 0) em estatísticas, matrículas, movimentos e overrides.
+		<br/>
+		<i class="fa fa-info-circle mr-1"></i>
+		<strong>Dados importados DGES</strong> — número de campos marcados como importados da DGES (statcol) na tabela de origem.
+		<br/>
 		<i class="fa fa-exclamation-triangle mr-1" style="color: #c0392b;"></i>
 		<strong>Apagar ano</strong> — remove completamente o ano letivo e todos os dados associados. Esta operação é irreversível.
 	</div>
 </div>
+
+{#if modalConfirmNovoAno}
+	<div class="modal d-block modal-gestao-confirm modal-confirm-novo-ano" tabindex="-1" role="dialog" aria-modal="true">
+		<div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px; width: 90%;">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Confirmar criação de nova tabela</h5>
+					<button type="button" class="close" aria-label="Fechar" onclick={fecharConfirmNovoAno}>
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					Vai ser criado o ano letivo:
+					<strong>{modalConfirmNovoAnoLoading ? 'Carregando...' : anoNovoParaCriar || '—'}</strong>
+					<p class="small text-muted mb-0" style="margin-top: 10px;">
+						A nova tabela será criada com todos os valores a 0.
+					</p>
+				</div>
+				<div class="modal-footer">
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={fecharConfirmNovoAno}
+						disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
+					>
+						Cancelar
+					</button>
+					<button
+						type="button"
+						class="btn btn-primary btn-nova-tabela-confirm"
+						onclick={confirmarCriarNovaTabela}
+						disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
+					>
+						{#if criandoNovaTabela}
+							<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+							Confirmando...
+						{:else}
+							Confirmar
+						{/if}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if modalVisible && modalAno}
 	<div class="modal d-block modal-gestao-confirm" tabindex="-1" role="dialog" aria-modal="true">
@@ -293,9 +446,40 @@
 		background-color: #e8f5e9;
 		color: #2e7d32;
 	}
+	.badge-dados {
+		display: inline-block;
+		padding: 3px 10px;
+		font-size: 11px;
+		font-weight: 600;
+		border-radius: 10px;
+		background-color: #e8f5e9;
+		color: #2e7d32;
+	}
+	.badge-dados-zero {
+		color: #9e9e9e;
+		font-weight: 500;
+	}
 	.badge-zerada {
 		background-color: #fff3e0;
 		color: #e65100;
+	}
+	.badge-dges {
+		display: inline-block;
+		padding: 3px 10px;
+		font-size: 11px;
+		font-weight: 600;
+		border-radius: 10px;
+		background-color: #e3f2fd;
+		color: #1565c0;
+		line-height: 1.4;
+	}
+	.badge-dges-sub {
+		font-weight: 500;
+		opacity: 0.85;
+	}
+	.badge-dges-zero {
+		color: #9e9e9e;
+		font-weight: 500;
 	}
 	.notas {
 		margin-top: 14px;
@@ -313,5 +497,29 @@
 	}
 	.modal-gestao-confirm .modal-dialog {
 		margin: 0 auto;
+	}
+	.btn-search-hover {
+		transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+		background-color: #20a8d8 !important;
+		border-color: #20a8d8 !important;
+		background-image: none !important;
+		color: #fff !important;
+		cursor: pointer;
+	}
+	.btn-search-hover:hover:not(:disabled) {
+		background-color: #1a93cc !important;
+		border-color: #1a93cc !important;
+	}
+	.btn-search-hover:disabled {
+		opacity: 0.65;
+		cursor: not-allowed;
+	}
+	.btn-nova-tabela-confirm {
+		background-color: #20a8d8;
+		border-color: #20a8d8;
+	}
+	.btn-nova-tabela-confirm:hover:not(:disabled) {
+		background-color: #1a8fb8;
+		border-color: #1a8fb8;
 	}
 </style>

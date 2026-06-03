@@ -1822,7 +1822,15 @@ export class VagasService {
 
   async listarAnos() {
     const anos = await this.prisma.$queryRaw<
-      { ano_inicio: number; ano_fim: number; total_cursos: number; tem_dados: number }[]
+      {
+        ano_inicio: number;
+        ano_fim: number;
+        total_cursos: number;
+        tem_dados: number;
+        total_dados_inseridos: number;
+        total_campos_dges: number;
+        total_cursos_dges: number;
+      }[]
     >`
       SELECT
         al.ano_inicio,
@@ -1833,7 +1841,93 @@ export class VagasService {
           INNER JOIN vagas.curso_oferta co2 ON co2.id_curso_oferta = ea.id_curso_oferta
           WHERE co2.id_ano_letivo = al.id_ano_letivo
             AND (ea.vagas > 0 OR ea.candidatos > 0 OR ea.colocados > 0 OR ea.matriculados > 0)
-        ) THEN 1 ELSE 0 END AS tem_dados
+        ) THEN 1 ELSE 0 END AS tem_dados,
+        (
+          SELECT COALESCE(SUM(x.cnt), 0)
+          FROM (
+            SELECT
+              (CASE WHEN ea.vagas > 0 THEN 1 ELSE 0 END
+               + CASE WHEN ea.candidatos > 0 THEN 1 ELSE 0 END
+               + CASE WHEN ea.candidatos_primeira_op > 0 THEN 1 ELSE 0 END
+               + CASE WHEN ea.colocados > 0 THEN 1 ELSE 0 END
+               + CASE WHEN ea.matriculados > 0 THEN 1 ELSE 0 END
+               + CASE WHEN ea.classificacao_ultimo IS NOT NULL AND ea.classificacao_ultimo <> 0 THEN 1 ELSE 0 END
+               + CASE WHEN ea.media_entrada IS NOT NULL AND ea.media_entrada <> 0 THEN 1 ELSE 0 END) AS cnt
+            FROM vagas.estatistica_acesso ea
+            INNER JOIN vagas.curso_oferta co_ea ON co_ea.id_curso_oferta = ea.id_curso_oferta
+            WHERE co_ea.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN m.total_matriculados > 0 THEN 1 ELSE 0 END
+            FROM vagas.matriculas_ano m
+            INNER JOIN vagas.curso_oferta co_m ON co_m.id_curso_oferta = m.id_curso_oferta
+            WHERE co_m.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN mc.quantidade > 0 THEN 1 ELSE 0 END
+            FROM vagas.movimento_cna mc
+            INNER JOIN vagas.curso_oferta co_mc ON co_mc.id_curso_oferta = mc.id_curso_oferta
+            WHERE co_mc.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN sob.sobras_pos_3f <> 0 THEN 1 ELSE 0 END
+            FROM vagas.sobras_pos_3f sob
+            INNER JOIN vagas.curso_oferta co_sob ON co_sob.id_curso_oferta = sob.id_curso_oferta
+            WHERE co_sob.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN vef.vagas_efetivas_3f <> 0 THEN 1 ELSE 0 END
+            FROM vagas.vagas_efetivas_3f vef
+            INNER JOIN vagas.curso_oferta co_vef ON co_vef.id_curso_oferta = vef.id_curso_oferta
+            WHERE co_vef.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN dfo.diff_vagas_mat_antes_3f <> 0 THEN 1 ELSE 0 END
+            FROM vagas.diff_vagas_mat_antes_3f_override dfo
+            INNER JOIN vagas.curso_oferta co_dfo ON co_dfo.id_curso_oferta = dfo.id_curso_oferta
+            WHERE co_dfo.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN ipvc.perc_ocupacao_cna <> 0 THEN 1 ELSE 0 END
+            FROM vagas.perc_ocupacao_cna_override ipvc
+            INNER JOIN vagas.curso_oferta co_ipvc ON co_ipvc.id_curso_oferta = ipvc.id_curso_oferta
+            WHERE co_ipvc.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN pao.pedidos_anulacao <> 0 THEN 1 ELSE 0 END
+            FROM vagas.pedidos_anulacao_override pao
+            INNER JOIN vagas.curso_oferta co_pao ON co_pao.id_curso_oferta = pao.id_curso_oferta
+            WHERE co_pao.id_ano_letivo = al.id_ano_letivo
+
+            UNION ALL
+
+            SELECT CASE WHEN tvd.total_vagas_disponiveis <> 0 THEN 1 ELSE 0 END
+            FROM vagas.total_vagas_disponiveis_override tvd
+            INNER JOIN vagas.curso_oferta co_tvd ON co_tvd.id_curso_oferta = tvd.id_curso_oferta
+            WHERE co_tvd.id_ano_letivo = al.id_ano_letivo
+          ) x
+        ) AS total_dados_inseridos,
+        (
+          SELECT COUNT(*)
+          FROM vagas.campo_origem cg
+          INNER JOIN vagas.curso_oferta co3 ON co3.id_curso_oferta = cg.id_curso_oferta
+          WHERE co3.id_ano_letivo = al.id_ano_letivo
+            AND cg.origem = 'DGES_STATCOL'
+        ) AS total_campos_dges,
+        (
+          SELECT COUNT(DISTINCT cg.id_curso_oferta)
+          FROM vagas.campo_origem cg
+          INNER JOIN vagas.curso_oferta co3 ON co3.id_curso_oferta = cg.id_curso_oferta
+          WHERE co3.id_ano_letivo = al.id_ano_letivo
+            AND cg.origem = 'DGES_STATCOL'
+        ) AS total_cursos_dges
       FROM vagas.ano_letivo al
       LEFT JOIN vagas.curso_oferta co ON co.id_ano_letivo = al.id_ano_letivo
       GROUP BY al.ano_inicio, al.ano_fim, al.id_ano_letivo
@@ -1844,7 +1938,10 @@ export class VagasService {
       anoFim: a.ano_fim,
       label: `${a.ano_inicio}/${a.ano_fim}`,
       totalCursos: Number(a.total_cursos),
-      temDados: Number(a.tem_dados) === 1
+      temDados: Number(a.tem_dados) === 1,
+      totalDadosInseridos: Number(a.total_dados_inseridos),
+      totalCamposDges: Number(a.total_campos_dges),
+      totalCursosDges: Number(a.total_cursos_dges)
     }));
   }
 

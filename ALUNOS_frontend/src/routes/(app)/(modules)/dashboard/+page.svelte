@@ -81,17 +81,11 @@
 
 	/** @param {string} escola */
 	function cursosParaEscola(escola) {
-		if (cursosBd.length > 0) {
-			const filtered =
-				escola === 'all' ? cursosBd : cursosBd.filter((c) => c.escola === escola);
-			return filtered.map((c) => c.nome).sort();
-		}
 		const cursoSet = new Set();
 		for (const l of linhas) {
 			if (!l.courseName) continue;
-			if (escola === 'all' || l.schoolName === escola) {
-				cursoSet.add(l.courseName);
-			}
+			if (escola !== 'all' && l.schoolName !== escola) continue;
+			cursoSet.add(l.courseName);
 		}
 		return Array.from(cursoSet).sort();
 	}
@@ -201,19 +195,11 @@
 	});
 
 	let cursosDisponiveis = $derived.by(() => {
-		if (cursosBd.length > 0) {
-			const filtered =
-				filtroEscola === 'all'
-					? cursosBd
-					: cursosBd.filter((c) => c.escola === filtroEscola);
-			return filtered.map((c) => c.nome).sort();
-		}
 		const cursoSet = new Set();
 		for (const l of linhas) {
 			if (!l.courseName) continue;
-			if (filtroEscola === 'all' || l.schoolName === filtroEscola) {
-				cursoSet.add(l.courseName);
-			}
+			if (filtroEscola !== 'all' && l.schoolName !== filtroEscola) continue;
+			cursoSet.add(l.courseName);
 		}
 		return Array.from(cursoSet).sort();
 	});

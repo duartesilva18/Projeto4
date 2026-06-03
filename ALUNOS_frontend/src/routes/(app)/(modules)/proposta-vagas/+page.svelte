@@ -134,9 +134,6 @@
 	let filtroAnoAplicado = $state('all');
 	let filtroEscolaAplicada = $state('all');
 	let filtroCursoAplicado = $state('all');
-	/** @type {'all' | 'importados' | 'incompletos'} */
-	let filtroImportado = $state('all');
-	let filtroImportadoAplicado = $state('all');
 
 	/**
 	 * Navegação por "páginas" via sidebar global:
@@ -212,11 +209,41 @@
 	let selectedCourse = $state(null);
 
 	/** @type {string[]} */
-	let anosDisponiveis = $state([]);
+	let anosDisponiveis = $derived.by(() => {
+		const anoSet = new Set();
+		for (const l of linhas) {
+			if (l.anoLetivoInicio && l.anoLetivoFim) {
+				anoSet.add(`${l.anoLetivoInicio}/${l.anoLetivoFim}`);
+			}
+		}
+		return Array.from(anoSet).sort((a, b) => {
+			const aIni = parseInt(a.split('/')[0] || '0', 10);
+			const bIni = parseInt(b.split('/')[0] || '0', 10);
+			return bIni - aIni;
+		});
+	});
+
 	/** @type {string[]} */
-	let escolasDisponiveis = $state([]);
-	/** @type {string[]} */
-	let cursosDisponiveis = $state([]);
+	let escolasDisponiveis = $derived.by(() => {
+		if (escolasBd.length > 0) return escolasBd.map((e) => e.nome).sort();
+		const escSet = new Set();
+		for (const l of linhas) {
+			if (l.schoolName) escSet.add(l.schoolName);
+		}
+		return Array.from(escSet).sort();
+	});
+
+	/** Cursos visíveis no seletor — dependem da escola escolhida (antes de aplicar). */
+	let cursosDisponiveis = $derived.by(() => {
+		const cursoSet = new Set();
+		for (const l of linhas) {
+			if (!l.courseName) continue;
+			if (filtroEscola !== 'all' && l.schoolName !== filtroEscola) continue;
+			cursoSet.add(l.courseName);
+		}
+		return Array.from(cursoSet).sort();
+	});
+
 	/** @type {CourseData[]} */
 	let linhasFiltradas = $state([]);
 	let kpi = $state({
@@ -232,54 +259,22 @@
 	});
 
 	$effect(() => {
-		// calcular opções de filtros
-		const anoSet = new Set();
-		linhas.forEach((l) => {
-			if (l.anoLetivoInicio && l.anoLetivoFim) {
-				anoSet.add(`${l.anoLetivoInicio}/${l.anoLetivoFim}`);
-			}
-		});
-		const anosArray = Array.from(anoSet).sort((a, b) => {
-			const aIni = parseInt(a.split('/')[0] || '0', 10);
-			const bIni = parseInt(b.split('/')[0] || '0', 10);
-			return bIni - aIni;
-		});
-		anosDisponiveis = anosArray;
 		const currentYear = new Date().getFullYear();
-		const currentAnoLabel = anosArray.find((a) => a.startsWith(`${currentYear}/`)) ?? anosArray[0];
+		const currentAnoLabel =
+			anosDisponiveis.find((a) => a.startsWith(`${currentYear}/`)) ?? anosDisponiveis[0];
 		if (currentAnoLabel && filtroAnoAplicado === 'all') {
 			filtroAno = currentAnoLabel;
 			filtroAnoAplicado = currentAnoLabel;
 		}
+	});
 
-		if (escolasBd.length > 0) {
-			escolasDisponiveis = escolasBd.map((e) => e.nome).sort();
-		} else {
-			const escSet = new Set();
-			linhas.forEach((l) => { if (l.schoolName) escSet.add(l.schoolName); });
-			escolasDisponiveis = Array.from(escSet).sort();
+	$effect(() => {
+		if (filtroCurso !== 'all' && !cursosDisponiveis.includes(filtroCurso)) {
+			filtroCurso = 'all';
 		}
+	});
 
-		if (cursosBd.length > 0) {
-			const filtered = filtroEscola === 'all'
-				? cursosBd
-				: cursosBd.filter((c) => c.escola === filtroEscola);
-			cursosDisponiveis = filtered.map((c) => c.nome).sort();
-		} else {
-			const cursoSet = new Set();
-			linhas.forEach((l) => {
-				if (!l.courseName) return;
-				if (filtroEscola === 'all' || l.schoolName === filtroEscola) {
-					cursoSet.add(l.courseName);
-				}
-			});
-			cursosDisponiveis = Array.from(cursoSet).sort();
-		}
-
-		// O "Curso" depende da escola selecionada no seletor visual.
-		// Os filtros só afetam as linhas ao clicar em "Aplicar filtros".
-
-		// aplicar filtros às linhas (usar variável local para evitar loop)
+	$effect(() => {
 		const filtradas = linhas.filter((l) => {
 			const anoLabel =
 				l.anoLetivoInicio && l.anoLetivoFim
@@ -291,11 +286,7 @@
 				filtroEscolaAplicada === 'all' || l.schoolName === filtroEscolaAplicada;
 			const matchCurso =
 				filtroCursoAplicado === 'all' || l.courseName === filtroCursoAplicado;
-			const matchImportado =
-				filtroImportadoAplicado === 'all' ||
-				(filtroImportadoAplicado === 'importados' && rowHasImportedFields(l)) ||
-				(filtroImportadoAplicado === 'incompletos' && rowIsIncompleto(l));
-			return matchAno && matchEscola && matchCurso && matchImportado;
+			return matchAno && matchEscola && matchCurso;
 		});
 
 		linhasFiltradas = filtradas;
@@ -417,28 +408,6 @@
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
 	};
-
-	const CNA_IMPORTABLE_FIELDS = [
-		'vagas1F', 'candidatos1F', 'colocados1F', 'classificacaoUltimo1F',
-		'vagas2F', 'candidatos2F', 'colocados2F', 'classificacaoUltimo2F',
-		'vagas3F', 'candidatos3F', 'colocados3F', 'classificacaoUltimo3F'
-	];
-
-	/** @param {CourseData} row */
-	function rowHasImportedFields(row) {
-		const fields = row?.importedFields;
-		return Array.isArray(fields) && fields.length > 0;
-	}
-
-	/** @param {CourseData} row */
-	function rowIsIncompleto(row) {
-		const imported = new Set(row?.importedFields ?? []);
-		return CNA_IMPORTABLE_FIELDS.some((key) => {
-			if (imported.has(key)) return false;
-			const val = Number(row?.[key]);
-			return !Number.isFinite(val) || val === 0;
-		});
-	}
 
 	/** @param {CourseData} row @param {string} field */
 	function isImportedField(row, field) {
@@ -1254,37 +1223,6 @@
 		fecharEditar();
 	}
 
-	// Estado ao criar novo ano (evita reload e efeito de "tabela grande que desaparece")
-	let criandoNovaTabela = $state(false);
-
-	// Modal de confirmação para criar nova tabela
-	let modalConfirmNovoAno = $state(false);
-	let anoNovoParaCriar = $state('');
-	let modalConfirmNovoAnoLoading = $state(false);
-
-	const fecharConfirmNovoAno = () => {
-		if (criandoNovaTabela) return; // evita fechar enquanto está a correr
-		modalConfirmNovoAno = false;
-		modalConfirmNovoAnoLoading = false;
-	};
-
-	const confirmarCriarNovaTabela = async () => {
-		if (criandoNovaTabela) return;
-		modalConfirmNovoAno = false;
-		criandoNovaTabela = true;
-
-		try {
-			const res = await fetch('/ep/api/vagas/novo-ano', { method: 'POST' });
-			if (res.ok) {
-				await invalidateAll();
-			}
-		} catch (e) {
-			console.error('Erro a criar novo ano letivo', e);
-		} finally {
-			criandoNovaTabela = false;
-		}
-	};
-
 	// Importação DGES (statcol)
 	let modalImportDges = $state(false);
 
@@ -1342,13 +1280,28 @@
 	}
 
 	:global(.cell-imported) {
-		color: #5a6c7d !important;
+		background-color: #e3f2fd !important;
+		color: #1565c0 !important;
 		font-weight: 500;
 	}
 
 	.import-legend {
 		font-size: 11px;
-		color: #5a6c7d;
+		color: #495057;
+	}
+
+	.import-legend .legend-swatch {
+		display: inline-block;
+		padding: 1px 8px;
+		border-radius: 4px;
+		font-weight: 600;
+		margin-right: 2px;
+	}
+
+	.import-legend .legend-swatch--formula {
+		background-color: #eceff3;
+		color: #4a5568;
+		margin-left: 10px;
 	}
 
 	.table-main thead th {
@@ -1443,8 +1396,8 @@
 	}
 
 	.table-main td.formula-cell {
-		background-color: #e9ecef;
-		color: #495057;
+		background-color: #eceff3;
+		color: #4a5568;
 		font-weight: 600;
 		cursor: default;
 		user-select: none;
@@ -1679,19 +1632,6 @@
 	}
 
 	/* Confirm dialog e botões com hover (igual ao da pesquisa) */
-	.modal-confirm-novo-ano {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 1rem;
-		width: 100%;
-		height: 100%;
-	}
-
-	.modal-confirm-novo-ano .modal-dialog {
-		margin: 0 auto;
-	}
-
 	.btn-search-hover {
 		transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
 		background-color: #20a8d8 !important;
@@ -1939,44 +1879,7 @@
 </style>
 
 <div>
-	<Breadcrum modulo={sidebarOptions.currentModule} objeto={sidebarOptions.currentObject} menu_items={items_breadcrum}>
-		<svelte:fragment slot="actions">
-			<button
-				type="button"
-				class="btn botao-breadcrumb-on btn-sm fw-bold btn-search-hover"
-				style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
-				disabled={criandoNovaTabela}
-				onclick={async () => {
-					if (criandoNovaTabela) return;
-					anoNovoParaCriar = '';
-					modalConfirmNovoAnoLoading = true;
-					modalConfirmNovoAno = true;
-
-					try {
-						const res = await fetch('/ep/api/vagas/novo-ano', { method: 'GET' });
-						if (res.ok) {
-							const data = await res.json();
-							const ano = data?.ano;
-							if (ano && typeof ano.ano_inicio === 'number' && typeof ano.ano_fim === 'number') {
-								anoNovoParaCriar = `${ano.ano_inicio}/${ano.ano_fim}`;
-							}
-						}
-					} catch (e) {
-						console.error('Erro ao obter próximo ano letivo', e);
-					} finally {
-						modalConfirmNovoAnoLoading = false;
-					}
-				}}
-			>
-				{#if criandoNovaTabela}
-					<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
-					A criar...
-				{:else}
-					<i class="fa fa-plus mr-1"></i> Nova tabela
-				{/if}
-			</button>
-		</svelte:fragment>
-	</Breadcrum>
+	<Breadcrum modulo={sidebarOptions.currentModule} objeto={sidebarOptions.currentObject} menu_items={items_breadcrum} />
 
 		<div class="p-2 mt-4">
 			<div class="row filter-controls g-2 align-items-end mb-2">
@@ -2026,25 +1929,11 @@
 								filtroAnoAplicado = filtroAno;
 								filtroEscolaAplicada = filtroEscola;
 								filtroCursoAplicado = filtroCurso;
-								filtroImportadoAplicado = filtroImportado;
 							}}
 						>
 							<i class="fa fa-search" aria-hidden="true"></i>
 						</button>
 					</div>
-				</div>
-
-				<div class="col-12 col-md-3">
-					<label class="form-label" for="filtro-importado">Dados DGES</label>
-					<select
-						id="filtro-importado"
-						class="form-control form-control-sm"
-						bind:value={filtroImportado}
-					>
-						<option value="all">Todos os cursos</option>
-						<option value="importados">Só importados da DGES</option>
-						<option value="incompletos">Com dados por preencher</option>
-					</select>
 				</div>
 
 			</div>
@@ -2085,7 +1974,8 @@
 				</div>
 			</div>
 			<p class="import-legend mb-2">
-				<span class="cell-imported">Cinzento</span> = valores importados da DGES (statcol).
+				<span class="cell-imported legend-swatch">Azul</span> = valores importados da DGES (statcol).
+				<span class="legend-swatch legend-swatch--formula">Cinzento</span> = totais calculados por fórmula (só leitura).
 			</p>
 
 			{#if activeTab === 'regime-nacional' || activeTab === 'concursos'}
@@ -4363,53 +4253,6 @@
 						<div class="modal-footer">
 							<button type="button" class="btn btn-secondary" onclick={fecharEditar}>Fechar</button>
 							<button type="button" class="btn btn-primary" onclick={guardarEditar}>Guardar</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		{#if modalConfirmNovoAno}
-			<div class="modal modal-editar-vagas d-block modal-confirm-novo-ano" tabindex="-1" role="dialog" aria-modal="true">
-				<div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 520px; width: 90%;">
-					<div class="modal-content">
-						<div class="modal-header">
-							<h5 class="modal-title">Confirmar criação de nova tabela</h5>
-							<button type="button" class="close" aria-label="Fechar" onclick={fecharConfirmNovoAno}>
-								<span aria-hidden="true">&times;</span>
-							</button>
-						</div>
-
-						<div class="modal-body">
-							Vai ser criado o ano letivo:
-							<strong>{modalConfirmNovoAnoLoading ? 'Carregando...' : anoNovoParaCriar || '—'}</strong>
-							<p class="small text-muted mb-0" style="margin-top: 10px;">
-								A nova tabela será criada com todos os valores a 0.
-							</p>
-						</div>
-
-						<div class="modal-footer">
-							<button
-								type="button"
-								class="btn btn-secondary"
-								onclick={fecharConfirmNovoAno}
-								disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
-							>
-								Cancelar
-							</button>
-							<button
-								type="button"
-								class="btn btn-primary btn-search-hover"
-								onclick={confirmarCriarNovaTabela}
-								disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
-							>
-								{#if criandoNovaTabela}
-									<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
-									Confirmando...
-								{:else}
-									Confirmar
-								{/if}
-							</button>
 						</div>
 					</div>
 				</div>
