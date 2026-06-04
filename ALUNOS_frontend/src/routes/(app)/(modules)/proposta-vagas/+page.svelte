@@ -1646,6 +1646,45 @@
 		border-color: #1a93cc !important;
 	}
 
+	.pv-action-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		width: 100%;
+	}
+	.pv-action-buttons .btn-pv-action {
+		height: 36px;
+		border-radius: 4px;
+		font-size: 14px;
+		font-weight: 700;
+		flex: 1 1 auto;
+		min-width: 0;
+		white-space: nowrap;
+	}
+	@media (min-width: 992px) {
+		.pv-action-buttons {
+			justify-content: flex-end;
+		}
+		.pv-action-buttons .btn-pv-action {
+			flex: 0 1 auto;
+			min-width: 8.5rem;
+		}
+	}
+	@media (max-width: 991.98px) {
+		.pv-action-buttons .btn-pv-action {
+			flex: 1 1 calc(50% - 0.25rem);
+		}
+	}
+	@media (max-width: 400px) {
+		.pv-action-buttons {
+			flex-direction: column;
+		}
+		.pv-action-buttons .btn-pv-action {
+			width: 100%;
+			flex: 1 1 auto;
+		}
+	}
+
 	.school-row {
 		background-color: #e3efff;
 	}
@@ -1947,26 +1986,24 @@
 			</div>
 
 			<!-- Nota de ajuda para a tabela -->
-			<div class="row mb-2 mt-2">
-				<div class="col-12 col-md-8 col-sm-12">
+			<div class="row mb-2 mt-2 g-2 align-items-start">
+				<div class="col-12 col-lg-8">
 					<small class="text-muted">
 						Clique nos cabeçalhos azuis dos grupos (Concursos especiais, Regimes especiais,
 						Estudantes internacionais, Totais, Distribuição por ano) para expandir ou recolher as colunas de detalhe.
 					</small>
 				</div>
-				<div class="col-12 col-md-4 d-flex flex-wrap gap-2 justify-content-md-end justify-content-sm-end mt-sm-2 mt-md-0">
+				<div class="col-12 col-lg-4 pv-action-buttons">
 					<button
 						type="button"
-						class="btn btn-outline-primary btn-sm btn-search-hover"
-						style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
+						class="btn btn-outline-primary btn-sm btn-search-hover btn-pv-action"
 						onclick={abrirImportDges}
 					>
 						<i class="fa fa-upload mr-1"></i> Importar DGES
 					</button>
 					<button
 						type="button"
-						class="btn btn-primary btn-sm btn-search-hover"
-						style="min-width: 130px; height: 36px; border-radius: 4px; font-size: 14px; font-weight: 700;"
+						class="btn btn-primary btn-sm btn-search-hover btn-pv-action"
 						onclick={exportCsv}
 					>
 						<i class="fa fa-download mr-1"></i> Exportar Excel
@@ -3751,27 +3788,6 @@
 				<div class="regime-notes-item">
 					<span class="regime-notes-tag">(4)</span>
 					Com base nas listagens da DGES, considerando todos os alunos candidatos
-				</div>
-			</div>
-		{/if}
-
-		<!-- Anos em que a tabela foi preenchida – atalho para filtrar por ano -->
-		{#if anosDisponiveis.length > 0}
-			<div class="row mt-3 mb-3">
-				<div class="col-12">
-					<small class="text-muted">Tabela preenchida nos anos: </small>
-					{#each anosDisponiveis as ano}
-						<button
-							type="button"
-							class="btn btn-sm {filtroAnoAplicado === ano ? 'btn-primary' : 'btn-outline-secondary'} mr-1 mb-1"
-							onclick={() => {
-								filtroAno = ano;
-								filtroAnoAplicado = ano;
-							}}
-						>
-							{ano}
-						</button>
-					{/each}
 				</div>
 			</div>
 		{/if}

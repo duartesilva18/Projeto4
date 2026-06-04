@@ -20,6 +20,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
+	import { tick } from 'svelte';
 
 	const DASHBOARD_FILTROS_STORAGE_KEY = 'dashboard-filtros-aplicados';
 	const MAX_ANOS_DASHBOARD = 4;
@@ -308,11 +309,132 @@
 		}
 		return value.toLocaleString('pt-PT');
 	}
+
+	let exportandoPdf = $state(false);
+	let mostrarCabecalhoPdf = $state(false);
+	let dataAtualPdf = $state('');
+
+	/** Aguarda o DOM e os gráficos ECharts estabilizarem após mudança de layout */
+	async function aguardarLayoutGraficos() {
+		await tick();
+		await new Promise((resolve) => {
+			requestAnimationFrame(() => requestAnimationFrame(resolve));
+		});
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	}
+
+	/** Repõe tamanho dos gráficos após html2canvas (evita canvas vazios na página) */
+	async function restaurarGraficos() {
+		if (!browser) return;
+		await tick();
+		const { getInstanceByDom } = await import('echarts');
+		document.querySelectorAll('#dashboard-pdf-content .echart-host').forEach((host) => {
+			getInstanceByDom(/** @type {HTMLElement} */ (host))?.resize();
+		});
+		window.dispatchEvent(new Event('resize'));
+	}
+
+	async function exportarPDF() {
+		if (!browser || exportandoPdf) return;
+
+		const el = document.getElementById('dashboard-pdf-content');
+		if (!el) return;
+
+		const scrollX = window.scrollX;
+		const scrollY = window.scrollY;
+
+		exportandoPdf = true;
+		dataAtualPdf = new Date().toLocaleDateString('pt-PT', {
+			day: '2-digit',
+			month: 'long',
+			year: 'numeric'
+		});
+		mostrarCabecalhoPdf = true;
+
+		try {
+			await aguardarLayoutGraficos();
+
+			const { default: html2canvas } = await import('html2canvas');
+			const { jsPDF } = await import('jspdf');
+
+			const canvas = await html2canvas(el, {
+				scale: 2,
+				useCORS: true,
+				allowTaint: true,
+				scrollX: -window.scrollX,
+				scrollY: -window.scrollY,
+				width: el.scrollWidth,
+				height: el.scrollHeight,
+				onclone: (doc) => {
+					doc.querySelectorAll('.echart-host').forEach((host) => {
+						const src = host.querySelector('canvas');
+						if (!src || !(src instanceof HTMLCanvasElement)) return;
+						const clone = /** @type {HTMLCanvasElement} */ (src.cloneNode(true));
+						host.innerHTML = '';
+						host.appendChild(clone);
+					});
+				}
+			});
+
+			const pdf = new jsPDF('l', 'mm', 'a4');
+			const pdfWidth = pdf.internal.pageSize.getWidth();
+			const pdfHeight = pdf.internal.pageSize.getHeight();
+
+			const imgWidth = pdfWidth;
+			const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+			const imgData = canvas.toDataURL('image/png');
+
+			if (imgHeight <= pdfHeight) {
+				pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+			} else {
+				let y = 0;
+				while (y < imgHeight) {
+					pdf.addImage(imgData, 'PNG', 0, -y, imgWidth, imgHeight);
+					y += pdfHeight;
+					if (y < imgHeight) pdf.addPage();
+				}
+			}
+
+			pdf.save(`dashboard-ipvc-${filtroAnoAplicado || 'sem-ano'}.pdf`);
+		} catch (err) {
+			console.error('Erro ao exportar PDF do dashboard', err);
+		} finally {
+			mostrarCabecalhoPdf = false;
+			exportandoPdf = false;
+			window.scrollTo(scrollX, scrollY);
+			await aguardarLayoutGraficos();
+			await restaurarGraficos();
+		}
+	}
 </script>
 
-<Breadcrum modulo="Proposta de Vagas" objeto="Dashboard" />
+<Breadcrum modulo="Proposta de Vagas" objeto="Dashboard">
+	<svelte:fragment slot="actions">
+		<button
+			type="button"
+			class="btn botao-breadcrumb-on btn-sm fw-bold btn-search-hover pdf-export-btn"
+			onclick={exportarPDF}
+			disabled={exportandoPdf}
+		>
+			{#if exportandoPdf}
+				<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+				A exportar…
+			{:else}
+				<i class="fa fa-file-pdf-o mr-1" aria-hidden="true"></i>
+				Exportar PDF
+			{/if}
+		</button>
+	</svelte:fragment>
+</Breadcrum>
 
-<div class="container-fluid dashboard-page">
+<div id="dashboard-pdf-content" class="container-fluid dashboard-page">
+	{#if mostrarCabecalhoPdf}
+	<div class="pdf-capture-header">
+		<strong>Dashboard — IPVC</strong>
+		<span>{dataAtualPdf}</span>
+	</div>
+	{/if}
+
 	<div class="row filter-controls g-2 align-items-end mb-3">
 		<div class="col-12 col-sm-6 col-lg-2">
 			<label class="form-label" for="dash-filtro-ano">Ano letivo</label>
@@ -560,6 +682,39 @@
 	.filter-controls .btn.filter-apply-full {
 		min-height: 40px;
 		margin-top: 2px;
+	}
+
+	:global(.pdf-export-btn.btn-search-hover) {
+		min-width: 130px;
+		height: 36px;
+		border-radius: 4px;
+		font-size: 14px;
+		font-weight: 700;
+		white-space: nowrap;
+		transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+		background-color: #20a8d8 !important;
+		border-color: #20a8d8 !important;
+		background-image: none !important;
+		color: #fff !important;
+	}
+	:global(.pdf-export-btn.btn-search-hover:hover:not(:disabled)) {
+		background-color: #1a93cc !important;
+		border-color: #1a93cc !important;
+		color: #fff !important;
+	}
+	:global(.pdf-export-btn.btn-search-hover:disabled) {
+		opacity: 0.65;
+		cursor: not-allowed;
+	}
+
+	.pdf-capture-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		padding: 4px 0 10px;
+		margin-bottom: 8px;
+		border-bottom: 1px solid #dee2e6;
+		font-size: 14px;
 	}
 
 	.dashboard-context {
