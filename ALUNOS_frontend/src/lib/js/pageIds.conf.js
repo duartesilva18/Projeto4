@@ -9,6 +9,8 @@ export let pageIds = {
         editoras: {moduleId: modules.exemplos, objectId: 2},
         editoras_nova: {moduleId: modules.exemplos, objectId: 3},
         editoras_id: {moduleId: modules.exemplos, objectId: 4},
+        formulario: {moduleId: modules.exemplos, objectId: 6},
+        produto: {moduleId: modules.exemplos, objectId: 7},
     },
 
     

@@ -1,5 +1,5 @@
 <script>
-	import { locale, t } from "$lib/translations/translations";
+	import { t } from "$lib/translations/translations";
 	import { pageTitle } from '$lib/runes/pageTitle.rune.svelte';
 	import { sidebarOptions } from '$lib/runes/sidebarOptions.rune.svelte';
 	import { pageIds } from '$lib/js/pageIds.conf';
@@ -7,6 +7,7 @@
 	import { enhance } from "$app/forms";
 	import { goto } from "$app/navigation";
 	import FileUpload from "$lib/components/ui/inputs/FileUpload.svelte";
+	import toastr from "toastr";
 
 	// titulo da página
 	pageTitle.title = $t("exemplos_editoras_nova.titulo_pagina")
@@ -46,7 +47,7 @@
 		<div class="card">
 			<div class="card-header">{$t("exemplos_editoras_nova.form.titulo")}</div>
 				<form method="POST" enctype="multipart/form-data" use:enhance={({formElement, formData, action, cancel, submitter}) => {
-					if(selectedFiles){
+					if(selectedFiles && selectedFiles.length > 0 && selectedFiles[0]){
 						formData.append("logotipo", selectedFiles[0]);
 					}
 
@@ -90,14 +91,14 @@
 				<div class="card-body">
 					<div class="form-group">
 						<label for="designacao">{$t("exemplos_editoras_nova.form.designacao")}</label>
-						<input type="designacao" id="designacao" name="designacao" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_designacao")}">
+						<input type="text" id="designacao" name="designacao" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_designacao")}">
 						{#if form?.erro_designacao}
 							<p class="error">{form.erro_designacao}</p>
 						{/if}
 					</div>
 					<div class="form-group">
 						<label for="nif">{$t("exemplos_editoras_nova.form.nif")}</label>
-						<input type="nif" id="nif" name="nif" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_nif")}">
+						<input type="text" id="nif" name="nif" class="form-control" placeholder="{$t("exemplos_editoras_nova.form.placeholder_nif")}">
 						{#if form?.erro_nif}
 							<p class="error">{form.erro_nif}</p>
 						{/if}
@@ -105,7 +106,7 @@
 
 					<div class="form-group">
 						<label for="ficheiro">{$t("exemplos_editoras_nova.form.logo")}</label>
-						<FileUpload multiple={true} bind:selectedFiles bind:errorMessage maxFileSizeMb={1}/>
+						<FileUpload multiple={false} bind:selectedFiles bind:errorMessage maxFileSizeMb={1}/>
 						{#if errorMessage}
 							<p class="error">{errorMessage}</p>
 						{/if}
@@ -115,8 +116,8 @@
 					</div>
 				</div>
 				<div class="card-footer d-flex justify-content-end">
-					<button type="submit" class="mx-1 btn btn-sm btn-primary" disabled={!btnSubmissaoAtivo} formaction="?/submissao"><i class="fa fa-dot-circle"></i> Criar</button>
-					<a type="button" href='../editoras' class="btn btn-sm btn-danger" ><i class="fa fa-ban"></i> Cancelar</a>
+					<button type="submit" class="mx-1 btn btn-sm btn-primary" disabled={!btnSubmissaoAtivo} formaction="?/submissao"><i class="fa fa-dot-circle" aria-hidden="true"></i> Criar</button>
+					<a href='/proposta-vagas/editoras' class="btn btn-sm btn-danger"><i class="fa fa-ban" aria-hidden="true"></i> Cancelar</a>
 				</div>
 			</form>
 		</div>

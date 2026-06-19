@@ -6,6 +6,7 @@ import { ExemploModule } from "./modulo_exemplo/module";
 import { AuthModule } from "./auth/auth.module";
 import { PassportModule } from '@nestjs/passport';
 import { VagasModule } from "./vagas/module";
+import { IaModule } from "./ia/module";
 
 
 
@@ -23,6 +24,9 @@ import { VagasModule } from "./vagas/module";
 
     // Módulo Vagas (ALUNOS_VAGAS)
     VagasModule,
+
+    // Módulo IA (Previsões IA)
+    IaModule,
 
     // Outros Módulos
     //...

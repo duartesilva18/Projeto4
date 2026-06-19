@@ -1,12 +1,11 @@
 <script>
     // @ts-nocheck
-	import Footer from '$lib/components/Footer.svelte';
-	import { title } from '$lib/stores/pageTitle';
+	import { pageTitle } from '$lib/runes/pageTitle.rune.svelte';
 	import { internalUrls } from '$lib/stores/internalUrls';
     /** @type {{children?: import('svelte').Snippet}} */
     let { children } = $props();
     
-    title.set("Sem Login")
+    pageTitle.title = "Sem Login"
 </script>
 
 

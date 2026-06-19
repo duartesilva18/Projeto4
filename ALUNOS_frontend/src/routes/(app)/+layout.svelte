@@ -2,7 +2,6 @@
     // @ts-nocheck
 	import Footer from '$lib/components/Footer.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { title } from '$lib/stores/pageTitle';
 	import Aside from '$lib/components/Aside.svelte';
 	import { internalUrls } from '$lib/stores/internalUrls';
 	import { pageTitle } from '$lib/runes/pageTitle.rune.svelte';

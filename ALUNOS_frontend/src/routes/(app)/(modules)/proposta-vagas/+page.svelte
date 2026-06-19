@@ -122,8 +122,6 @@
 
 	/** @type {{ id: number, codigo: string, nome: string }[]} */
 	let escolasBd = $derived(Array.isArray(/** @type {any} */ (data).escolas) ? /** @type {any} */ (data).escolas : []);
-	/** @type {{ id: number, codigo: string, nome: string, regime: string, idEscola: number, escola: string }[]} */
-	let cursosBd = $derived(Array.isArray(/** @type {any} */ (data).cursos) ? /** @type {any} */ (data).cursos : []);
 
 	// filtros (ano letivo, escola e curso)
 	// valores escolhidos nos selects
@@ -333,48 +331,14 @@
 	});
 
 	// titulo da página
-	pageTitle.title = $t("exemplos_base.titulo_pagina");
+	pageTitle.title = $t("proposta_vagas.titulo_pagina");
 
 	// designação do módulo e objetos abertos
-	sidebarOptions.currentModule = $t("exemplos_base.modulo");
+	sidebarOptions.currentModule = $t("proposta_vagas.modulo");
 	// será sincronizado pelo $effect() quando o parâmetro "tab" mudar
-	sidebarOptions.currentObject = $t("exemplos_base.objeto");
+	sidebarOptions.currentObject = $t("proposta_vagas.objeto");
 	sidebarOptions.currentModuleId = pageIds.exemplos.base.moduleId;
 	sidebarOptions.currentObjectId = 1;
-
-	// grupos expandidos (começam todos colapsados)
-	/** @type {Set<string>} */
-	let expandedGroups = $state(new Set());
-
-	/** @param {string} groupName */
-	const isGroupExpanded = (groupName) => {
-		const expanded = expandedGroups.has(groupName);
-		console.log('[isGroupExpanded]', groupName, '=>', expanded, 'current:', Array.from(expandedGroups));
-		return expanded;
-	};
-
-	/** @param {string} groupName */
-	const toggleGroup = (groupName) => {
-		console.log('--- toggleGroup called ---');
-		console.log('before:', groupName, Array.from(expandedGroups));
-		const next = new Set(expandedGroups);
-		if (next.has(groupName)) {
-			next.delete(groupName);
-		} else {
-			next.add(groupName);
-		}
-		console.log('after :', groupName, Array.from(next));
-		// reatribuir para garantir reatividade
-		expandedGroups = next;
-	};
-
-	/** @param {CourseData} row */
-	const getSpecialContestsTotal = (row) =>
-		(row.over23Matriculados || 0) +
-		(row.cetMatriculados || 0) +
-		(row.ctespMatriculados || 0) +
-		(row.otherHigherMatriculados || 0) +
-		(row.dualCertMatriculados || 0);
 
 	/**
 	 * Indica se a linha é a primeira de uma escola (para mostrar cabeçalho de escola)
@@ -966,6 +930,7 @@
 
 			if (!res.ok) {
 				console.error('Falha ao guardar edição inline', await res.text());
+				await toastError('Não foi possível guardar a alteração. Tenta novamente.');
 				return;
 			}
 
@@ -974,6 +939,7 @@
 			closeInlineEdit();
 		} catch (e) {
 			console.error('Erro ao guardar edição inline', e);
+			await toastError('Ocorreu um erro ao guardar. Tenta novamente.');
 		} finally {
 			inlineEditCommitting = false;
 		}
@@ -1240,7 +1206,6 @@
 	.group-header {
 		background: linear-gradient(to right, #0d6efd, #0b5ed7);
 		color: #fff;
-		cursor: pointer;
 	}
 	.group-header-secondary {
 		background-color: #e7f1ff;
@@ -1989,24 +1954,26 @@
 			<div class="row mb-2 mt-2 g-2 align-items-start">
 				<div class="col-12 col-lg-8">
 					<small class="text-muted">
-						Clique nos cabeçalhos azuis dos grupos (Concursos especiais, Regimes especiais,
-						Estudantes internacionais, Totais, Distribuição por ano) para expandir ou recolher as colunas de detalhe.
+						Clique numa linha para selecionar o curso. Os valores a azul foram importados da DGES;
+						os totais a cinzento são calculados por fórmula e são só de leitura.
 					</small>
 				</div>
 				<div class="col-12 col-lg-4 pv-action-buttons">
 					<button
 						type="button"
 						class="btn btn-outline-primary btn-sm btn-search-hover btn-pv-action"
+						aria-label="Importar dados da DGES"
 						onclick={abrirImportDges}
 					>
-						<i class="fa fa-upload mr-1"></i> Importar DGES
+						<i class="fa fa-upload me-1" aria-hidden="true"></i> Importar DGES
 					</button>
 					<button
 						type="button"
 						class="btn btn-primary btn-sm btn-search-hover btn-pv-action"
+						aria-label="Exportar para Excel"
 						onclick={exportCsv}
 					>
-						<i class="fa fa-download mr-1"></i> Exportar Excel
+						<i class="fa fa-download me-1" aria-hidden="true"></i> Exportar Excel
 					</button>
 				</div>
 			</div>
@@ -3794,11 +3761,17 @@
 
 		<!-- Modal Editar curso: abas para não mostrar tudo de uma vez -->
 		{#if editingRow && editForm}
-			<div class="modal modal-editar-vagas d-block" tabindex="-1" role="dialog">
+			<div
+				class="modal modal-editar-vagas d-block"
+				tabindex="-1"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="modal-editar-vagas-title"
+			>
 				<div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
 					<div class="modal-content">
 						<div class="modal-header">
-							<h5 class="modal-title">Editar — {editingRow.courseName} ({editingRow.courseCode})</h5>
+							<h5 class="modal-title" id="modal-editar-vagas-title">Editar — {editingRow.courseName} ({editingRow.courseCode})</h5>
 							<button type="button" class="close" aria-label="Fechar" onclick={fecharEditar}>
 								<span aria-hidden="true">&times;</span>
 							</button>

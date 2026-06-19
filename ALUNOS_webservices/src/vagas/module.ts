@@ -14,6 +14,7 @@ import { DgesImportLogRepository } from './import/dges-import-log.repository';
     DgesImportPreviewRepository,
     DgesImportLogRepository
   ],
+  exports: [VagasService],
 })
 export class VagasModule {}
 

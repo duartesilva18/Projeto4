@@ -80,6 +80,13 @@ export const load = async () => {
                     ficheiro: "/comparar-anos"
                 },
                 {
+                    id_objeto: 52,
+                    descricao: "Previsões IA",
+                    item_menu: true,
+                    ativo: true,
+                    ficheiro: "/analise-ia"
+                },
+                {
                     id_objeto: 99,
                     descricao: "Gestão de Tabelas",
                     item_menu: true,

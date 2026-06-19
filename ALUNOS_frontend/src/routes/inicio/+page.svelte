@@ -12,7 +12,7 @@
   <link href="/external/CoreUI/css/style.css" rel="stylesheet">
   <link href="/logos/grid_icons_login.css" rel="stylesheet">
   
-  <title>Erro • ON.IPVC_v3</title>
+  <title>Início • ON.IPVC_v3</title>
 
   <style>
       .pre-load {
@@ -75,10 +75,12 @@
   <h3>Página sem conteúdo. Utilize a URL para navegar até às páginas específicas.</h3>
   <h3><a href="/proposta-vagas" target="_self">Proposta de Vagas</a></h3>
   <ul>
-    <li>Ligações úteis:</li>
-    <ul>
+    <li>
+      Ligações úteis:
+      <ul>
         <li>FontAwsome Icons - <a href="https://fontawesome.com/v5/search?ic=free&o=r">https://fontawesome.com/v5/search?ic=free&o=r</a></li>
         <li>Bootstrap 4.3.1 - <a href="https://getbootstrap.com/docs/4.3/getting-started/introduction/">https://getbootstrap.com/docs/4.3/getting-started/introduction/</a></li>
-    </ul>
+      </ul>
+    </li>
   </ul>
 </div>

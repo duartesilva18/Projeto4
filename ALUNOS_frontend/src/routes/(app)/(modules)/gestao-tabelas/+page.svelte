@@ -49,14 +49,14 @@
 			}
 		} catch (e) {
 			console.error('Erro ao obter próximo ano letivo', e);
+			toastr.error('Não foi possível obter o próximo ano letivo.', 'ERRO', { timeOut: 5000 });
 		} finally {
 			modalConfirmNovoAnoLoading = false;
 		}
 	}
 
 	async function confirmarCriarNovaTabela() {
-		if (criandoNovaTabela) return;
-		modalConfirmNovoAno = false;
+		if (criandoNovaTabela || !anoNovoParaCriar) return;
 		criandoNovaTabela = true;
 		try {
 			const res = await fetch('/ep/api/vagas/novo-ano', { method: 'POST' });
@@ -71,6 +71,7 @@
 				'SUCESSO',
 				{ timeOut: 5000, progressBar: true }
 			);
+			modalConfirmNovoAno = false;
 			await invalidateAll();
 		} catch (e) {
 			console.error('Erro a criar novo ano letivo', e);
@@ -145,10 +146,10 @@
 			onclick={abrirConfirmNovoAno}
 		>
 			{#if criandoNovaTabela}
-				<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+				<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
 				A criar...
 			{:else}
-				<i class="fa fa-plus mr-1"></i> Nova tabela
+				<i class="fa fa-plus me-1" aria-hidden="true"></i> Nova tabela
 			{/if}
 		</button>
 	</svelte:fragment>
@@ -158,10 +159,11 @@
 	<div class="table-wrapper">
 		{#if anos.length === 0}
 			<div class="text-center text-muted py-5">
-				<i class="fa fa-info-circle fa-2x mb-2"></i>
+				<i class="fa fa-info-circle fa-2x mb-2" aria-hidden="true"></i>
 				<p>Não existem anos letivos na base de dados.</p>
 			</div>
 		{:else}
+			<div class="table-scroll">
 			<table class="gestao-table">
 				<thead>
 					<tr>
@@ -219,34 +221,35 @@
 									class="btn-limpar"
 									onclick={() => openModal(ano, 'reset')}
 								>
-									<i class="fa fa-eraser mr-1"></i> Limpar dados
+									<i class="fa fa-eraser me-1" aria-hidden="true"></i> Limpar dados
 								</button>
 								<button
 									type="button"
 									class="btn-apagar"
 									onclick={() => openModal(ano, 'delete')}
 								>
-									<i class="fa fa-trash mr-1"></i> Apagar ano
+									<i class="fa fa-trash me-1" aria-hidden="true"></i> Apagar ano
 								</button>
 							</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
+			</div>
 		{/if}
 	</div>
 
 	<div class="notas">
-		<i class="fa fa-info-circle mr-1"></i>
+		<i class="fa fa-info-circle me-1" aria-hidden="true"></i>
 		<strong>Limpar dados</strong> — coloca todos os valores numéricos a 0, mas mantém a estrutura (cursos e ano letivo).
 		<br/>
-		<i class="fa fa-info-circle mr-1"></i>
+		<i class="fa fa-info-circle me-1" aria-hidden="true"></i>
 		<strong>Total dados inseridos</strong> — número de valores preenchidos (≠ 0) em estatísticas, matrículas, movimentos e overrides.
 		<br/>
-		<i class="fa fa-info-circle mr-1"></i>
+		<i class="fa fa-info-circle me-1" aria-hidden="true"></i>
 		<strong>Dados importados DGES</strong> — número de campos marcados como importados da DGES (statcol) na tabela de origem.
 		<br/>
-		<i class="fa fa-exclamation-triangle mr-1" style="color: #c0392b;"></i>
+		<i class="fa fa-exclamation-triangle me-1" style="color: #c0392b;" aria-hidden="true"></i>
 		<strong>Apagar ano</strong> — remove completamente o ano letivo e todos os dados associados. Esta operação é irreversível.
 	</div>
 </div>
@@ -281,10 +284,10 @@
 						type="button"
 						class="btn btn-primary btn-nova-tabela-confirm"
 						onclick={confirmarCriarNovaTabela}
-						disabled={criandoNovaTabela || modalConfirmNovoAnoLoading}
+						disabled={criandoNovaTabela || modalConfirmNovoAnoLoading || !anoNovoParaCriar}
 					>
 						{#if criandoNovaTabela}
-							<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+							<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
 							Confirmando...
 						{:else}
 							Confirmar
@@ -343,12 +346,12 @@
 						disabled={modalLoading}
 					>
 						{#if modalLoading}
-							<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+							<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
 							A processar...
 						{:else if modalAction === 'delete'}
-							<i class="fa fa-trash mr-1"></i> Apagar
+							<i class="fa fa-trash me-1" aria-hidden="true"></i> Apagar
 						{:else}
-							<i class="fa fa-eraser mr-1"></i> Limpar dados
+							<i class="fa fa-eraser me-1" aria-hidden="true"></i> Limpar dados
 						{/if}
 					</button>
 				</div>
@@ -364,9 +367,13 @@
 		box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
 		background: #fff;
 	}
+	.table-scroll {
+		overflow-x: auto;
+	}
 	.gestao-table {
 		border-collapse: collapse;
 		width: 100%;
+		min-width: 760px;
 		font-size: 13px;
 		background-color: #ffffff;
 	}

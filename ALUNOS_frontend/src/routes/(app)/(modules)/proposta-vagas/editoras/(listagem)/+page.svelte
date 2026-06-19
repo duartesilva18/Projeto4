@@ -6,8 +6,10 @@
     import Breadcrum from "$lib/components/Breadcrum.svelte";
     import * as dt_pt from '$lib/translations/pt/datatables.json';
     import * as dt_en from '$lib/translations/en/datatables.json';
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import { invalidate } from "$app/navigation";
+	import { browser } from "$app/environment";
+	import toastr from "toastr";
 
 	// titulo da página
 	pageTitle.title = $t("exemplos_editoras.titulo_pagina")
@@ -68,7 +70,7 @@
 					orderable: false,
 					className: "dt-body-center",
 					render: function(/** @type {any} */ data, /** @type {any} */ type, /** @type {any} */ row){
-						return `<td><img src='/ep/proposta-vagas/editoras/getLogotipo/${row[0]}' style="max-width: 100px; max-height: 100px;"/></td>`
+						return `<img src='/ep/proposta-vagas/editoras/getLogotipo/${row[0]}' alt='Logótipo' style="max-width: 100px; max-height: 100px;"/>`
 					}
 				},
 				{
@@ -76,14 +78,14 @@
 					orderable: false,
 					className: "dt-body-center",
 					render: function(/** @type {any} */ data, /** @type {any} */ type, /** @type {any} */ row){
-						return `<td><a href='./editoras/${row[1]}' class="btn btn-sm btn-outline-info"><i class="fas fas fa-external-link-alt"></i></a></td>`
+						return `<a href='/proposta-vagas/editoras/${row[0]}' class="btn btn-sm btn-outline-info" aria-label="Ver detalhe"><i class="fas fa-external-link-alt" aria-hidden="true"></i></a>`
 					}
 				}, {
 					targets: [-1], // Eliminar
 					orderable: false,
 					className: "dt-body-center",
 					render: function(/** @type {any} */ data, /** @type {any} */ type, /** @type {any} */ row){
-						return `<td><button data-id_editora=${row[1]} class="eliminar_editora btn btn-sm btn-outline-danger"><i class="fas fas fa-trash"></i></button></td>`
+						return `<button data-id_editora='${row[0]}' class="eliminar_editora btn btn-sm btn-outline-danger" aria-label="Eliminar editora"><i class="fas fa-trash" aria-hidden="true"></i></button>`
 					}
 				}
 			],
@@ -113,7 +115,9 @@
 		}
 
 
-		jQuery(document).on("click", ".eliminar_editora", async function(){
+		jQuery(document).on("click.editoras", ".eliminar_editora", async function(){
+			if (!window.confirm($t("exemplos_editoras.confirmar_eliminar"))) return;
+
 			let queryString = '?';
 			queryString += 'id_editora=' + jQuery(this).data("id_editora");
 
@@ -157,7 +161,17 @@
 	})
 
 
-	let items_breadcrum = $derived([{icon_class: "icon-doc", url: "./editoras/nova", designacao: $t("exemplos_editoras.nova")}])
+	onDestroy(() => {
+		if (!browser) return;
+		jQuery(document).off("click.editoras");
+		if (table) {
+			// @ts-ignore
+			table.destroy();
+			table = null;
+		}
+	});
+
+	let items_breadcrum = $derived([{icon_class: "icon-doc", url: "/proposta-vagas/editoras/nova", designacao: $t("exemplos_editoras.nova")}])
 </script>
 
 <style>

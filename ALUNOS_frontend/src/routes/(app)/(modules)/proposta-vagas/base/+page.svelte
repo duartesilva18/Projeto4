@@ -4,7 +4,6 @@
 	import { onMount } from "svelte";
 	import * as dt_pt from '$lib/translations/pt/datatables.json';
 	import * as dt_en from '$lib/translations/en/datatables.json';
-	import Datepicker from "$lib/components/ui/Datepicker.svelte";
 	import { pageTitle } from "$lib/runes/pageTitle.rune.svelte";
 	import { sidebarOptions } from "$lib/runes/sidebarOptions.rune.svelte";
 	import { pageIds } from "$lib/js/pageIds.conf";
@@ -57,8 +56,7 @@
 			'order': [[ 3, 'desc' ]],
 			'columnDefs': [
 				{ 'visible': true, 'targets': [0, 6] },
-				{ 'orderable': false, targets: [] },
-				{ 'render': function() {return "<button data-id='12345' class='teste' on:click='{() => console.log(1)}'>aaa</button>"}, targets: [1] }
+				{ 'orderable': false, targets: [] }
 			],
 			'drawCallback': function () {
 				jQuery('.datatable-on').parent().removeClass('container-fluid');
@@ -78,18 +76,8 @@
 		filtrosLoadData("cd_letivo");
 		filtrosLoadData("uo");
 		filtrosLoadData("cd_curso", {});
-
-		jQuery(document).on("click", ".teste", function(){
-			console.log(jQuery(this).data("id"))
-			a();
-		})
 	})
 
-	function a() {
-		console.log("a")
-	}
-
-	a() 	
 	function filtrosChange(/** * @type {any} */ elem){
 		const select_id = elem.currentTarget.id;
 
@@ -97,23 +85,26 @@
 		//Pesquisa depende de [a,b,c]
 		const dependenciasPesquisa = ["cd_letivo"];
 		//X tem como dependentes [a,b,c]
+		/** @type {Record<string, string[]>} */
 		const dependentes = {
 			"cd_letivo": ["cd_curso"],
 			"uo": ["cd_curso"]
 		}
 		//X depende de [a,b,c]
+		/** @type {Record<string, string[]>} */
 		const dependencias = {
 			"cd_curso": ["cd_letivo", "uo"]
 		}
 
 		if(dependentes.hasOwnProperty(select_id)){
-			dependentes[select_id].forEach((el) => {
+			dependentes[select_id].forEach((/** @type {string} */ el) => {
 				// check query params dependencias
+				/** @type {Record<string, string>} */
 				let queryParams = {}
 				clearFilterData(el)
 				if(dependencias.hasOwnProperty(el)){
-					dependencias[el].forEach(function(key_dep){
-						queryParams[key_dep] = jQuery(`#${key_dep}`).val() || "%"
+					dependencias[el].forEach(function(/** @type {string} */ key_dep){
+						queryParams[key_dep] = String(jQuery(`#${key_dep}`).val() || "%")
 					})
 				}
 				filtrosLoadData(el, queryParams)
@@ -129,8 +120,8 @@
 					pesquisavel = false;
 				}
 			});
-			if(pesquisavel) jQuery("#btn_filtros").removeClass("disabled");
-			else jQuery("#btn_filtros").addClass("disabled");
+			if(pesquisavel) jQuery("#btn_filtros").removeClass("disabled").prop("disabled", false);
+			else jQuery("#btn_filtros").addClass("disabled").prop("disabled", true);
 		}
 	}
 
@@ -183,7 +174,7 @@
 	async function pesquisar(){
 		jQuery("#conteudo_carregado").css("display", "none")
 		jQuery("#loading_area").css("display", "block")
-		jQuery("#btn_filtros").addClass("disabled");
+		jQuery("#btn_filtros").addClass("disabled").prop("disabled", true);
 
 		let queryString = "?";
 		queryString += "cd_letivo=" + jQuery("#cd_letivo").val();
@@ -207,13 +198,9 @@
 			table.rows.add(dados_tbl).draw();
 		}
 
-		jQuery("#btn_filtros").removeClass("disabled");
+		jQuery("#btn_filtros").removeClass("disabled").prop("disabled", false);
 		jQuery("#conteudo_carregado").css("display", "block")
 		jQuery("#loading_area").css("display", "none")
-	}
-
-	function teste_date_change(ev){
-		console.log(ev.target.id, ev.target.value)
 	}
 
 	let items_breadcrum = [{icon_class: "icon-doc", url: "#", designacao: $t("base.btn_topo"), function: teste}];
@@ -225,7 +212,7 @@
 	<div class="container-fluid">
 		<div class="row filter pb-2" data-collapseFilter="true">
 			<div class="col-md-3">
-				<label>Ano letivo</label>
+				<label for="cd_letivo">Ano letivo</label>
 				<select id="cd_letivo" class="form-control select2-single">
 					<option>Selecione um elemento</option>
 					{#each anosletivos as anol}
@@ -234,7 +221,7 @@
 				</select>
 			</div>
 			<div class="col-md-2">
-				<label>Unidade Orgânica</label>
+				<label for="uo">Unidade Orgânica</label>
 				<select id="uo" class="form-control select2-single">
 					{#if !unidadesorganicas || !unidadesorganicas.length}
 						<option selected disabled>A carregar..</option>
@@ -246,7 +233,7 @@
 				</select>
 			</div>
 			<div class="col-md-3">
-				<label>Curso</label>
+				<label for="cd_curso">Curso</label>
 				<select id="cd_curso" class="form-control select2-single pesquisavel">
 					{#if !cursos || !cursos.length}
 						<option selected>A carregar...</option>
@@ -258,8 +245,8 @@
 				</select>
 			</div>
 			<div class="col-md-1">
-				<label>&nbsp;</label>
-				<button id="btn_filtros" type="button" class="btn btn-primary btn-sm btn-block get-source disabled" onclick={pesquisar}><i class="fas fa-search"></i></button>
+				<label for="btn_filtros">&nbsp;</label>
+				<button id="btn_filtros" type="button" class="btn btn-primary btn-sm btn-block get-source disabled" disabled aria-label="Pesquisar" onclick={pesquisar}><i class="fas fa-search" aria-hidden="true"></i></button>
 			</div>
 		</div>
 	</div>	
@@ -315,23 +302,5 @@
 		
 		<p>{$t("base.recebido")} {data.texto}</p>
 		<a class="btn btn-primary" href="/proposta-vagas/editoras">TESTE NAVEGAÇÃO href</a>
-	</div>
-
-	<hr>
-	<div class="container-fluid">
-		<div class="row filter pb-2" data-collapseFilter="true">
-			<div class="col-md-3">
-				<label>Data1</label>
-				<Datepicker id="testedata" on:focusout={teste_date_change} />
-			</div>
-			<div class="col-md-2">
-				<label>Data2</label>
-				<Datepicker id="testedata2" on:focusout={teste_date_change} />
-			</div>
-			<div class="col-md-1">
-				<label>&nbsp;</label>
-				<button id="btn_filtros" type="button" class="btn btn-primary btn-sm btn-block get-source disabled"><i class="fas fa-search"></i></button>
-			</div>
-		</div>
 	</div>
 </div>

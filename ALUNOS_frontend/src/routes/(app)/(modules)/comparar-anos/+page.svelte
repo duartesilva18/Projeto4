@@ -65,7 +65,12 @@
 	/** Chave do campo a comparar (uma métrica — A, B, C + Δ₁ = B−A + Δ₂ = C−B) */
 	let metricKey = $state('totalCandidatosCna');
 
-	/** @type {'abs_desc' | 'abs_asc' | 'nome'} */
+	/**
+	 * Métrica e ordenação são controlos de vista imediatos: só reorganizam/recalculam
+	 * as colunas a partir das linhas já aplicadas, não alteram o conjunto consultado.
+	 * Por isso aplicam-se logo (ao contrário de ano/escola/curso, que dependem da lupa).
+	 * @type {'abs_desc' | 'abs_asc' | 'nome'}
+	 */
 	let sortMode = $state('abs_desc');
 
 	/** Valores escolhidos nos filtros (só afetam a tabela ao clicar na lupa) */
@@ -81,7 +86,6 @@
 	let aplicadoEscola = $state('all');
 	let aplicadoCurso = $state('all');
 	let pesquisaAplicada = $state('');
-	let sortModeAplicado = $state('abs_desc');
 
 	let pageSize = $state(50);
 	let pageIndex = $state(0);
@@ -137,6 +141,7 @@
 
 	$effect(() => {
 		void metricKey;
+		void sortMode;
 		pageIndex = 0;
 	});
 
@@ -144,10 +149,6 @@
 		if (optCurso !== 'all' && !cursosDisponiveis.includes(optCurso)) {
 			optCurso = 'all';
 		}
-	});
-
-	$effect(() => {
-		sortModeAplicado = sortMode;
 	});
 
 	/** @param {string} label */
@@ -329,7 +330,7 @@
 	let joinedSorted = $derived.by(() => {
 		const arr = [...joinedFiltered];
 		const key = metricKey;
-		if (sortModeAplicado === 'nome') {
+		if (sortMode === 'nome') {
 			arr.sort(
 				(a, b) =>
 					(a.displaySchool || '').localeCompare(b.displaySchool || '', 'pt') ||
@@ -338,7 +339,7 @@
 			return arr;
 		}
 		const absFor = (p) => absSortScore(p, key);
-		if (sortModeAplicado === 'abs_desc') {
+		if (sortMode === 'abs_desc') {
 			arr.sort((a, b) => absFor(b) - absFor(a));
 			return arr;
 		}
@@ -491,6 +492,7 @@
 					<button
 						type="button"
 						class="btn btn-sm cmp-metric-chip {metricKey === q.key ? 'btn-primary' : 'btn-outline-secondary'}"
+						aria-pressed={metricKey === q.key}
 						onclick={() => (metricKey = q.key)}
 					>
 						{q.label}
@@ -551,7 +553,7 @@
 
 	{#if anosDisponiveis.length === 0}
 		<div class="text-center text-muted py-5">
-			<i class="fa fa-info-circle fa-2x mb-2"></i>
+			<i class="fa fa-info-circle fa-2x mb-2" aria-hidden="true"></i>
 			<p class="mb-0">Sem dados para comparar.</p>
 		</div>
 	{:else if !anoAAplicado && !anoBAplicado && !anoCAplicado}
@@ -698,6 +700,7 @@
 		font-size: 12px;
 		font-weight: 600;
 		margin-bottom: 4px;
+		color: #0b5ed7;
 	}
 	.metric-card {
 		border: 1px solid #dde3f0;
@@ -794,10 +797,10 @@
 		border: 1px solid #dde3f0;
 		box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
 	}
-	/* Linha Ano A / Ano B / pesquisa + lupa (igual proposta de vagas) */
+	/* Linha Ano A / Ano B / pesquisa + lupa (cor de label alinhada ao dashboard) */
 	.filter-row.filter-controls .form-label {
 		font-size: 12px;
-		color: #6c757d;
+		color: #0b5ed7;
 		margin-bottom: 2px;
 		font-weight: 600;
 	}

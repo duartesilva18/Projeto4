@@ -2,23 +2,20 @@
 	import { pageIds } from "$lib/js/pageIds.conf";
 	import { pageTitle } from "$lib/runes/pageTitle.rune.svelte";
 	import { sidebarOptions } from "$lib/runes/sidebarOptions.rune.svelte";
-	import { title } from "$lib/stores/pageTitle";
 	import { t } from "$lib/translations/translations";
 
 	// titulo da página
-	pageTitle.title = $t("produtos.titulo_pagina")
+	pageTitle.title = $t("produto.titulo_pagina")
 
 	// designação do módulo e objetos abertos
-	sidebarOptions.currentModule = $t("produtos.modulo");
-	sidebarOptions.currentObject = $t("produtos.objeto");
+	sidebarOptions.currentModule = $t("produto.modulo");
+	sidebarOptions.currentObject = $t("produto.objeto");
 	sidebarOptions.currentModuleId = pageIds.exemplos.produto.moduleId;
 	sidebarOptions.currentObjectId = pageIds.exemplos.produto.objectId;
 
 
 	/** @type {{data: import('./$types').PageData}} */
 	let { data } = $props();
-
-  	title.set("Produto")
 </script>
 
 
@@ -27,7 +24,6 @@
 {#await data.produto.data}
 	<p>{$t("produto.a_carregar")}</p>
 {:then produto}
-	{title.set(produto.title) || ""}
 	<div class="border b-1 border-primary my-1 p-2">
 		<p><b>{produto.title}</b> {produto.price || "-"}€</p>
 		<p>{produto.description}</p>
@@ -38,4 +34,4 @@
 	<p>{$t("produto.erro_carregar")}</p>
 {/await}
 
-<a class="btn btn-primary" href="/produtos">Voltar à lista de produtos</a>
+<a class="btn btn-primary" href="/proposta-vagas">Voltar</a>

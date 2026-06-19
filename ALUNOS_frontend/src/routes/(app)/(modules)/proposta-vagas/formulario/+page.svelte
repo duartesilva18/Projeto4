@@ -19,7 +19,7 @@
 	<Breadcrum modulo={sidebarOptions.currentModule} objeto={sidebarOptions.currentObject} />
 </div>
 <div class="col-sm-12" style="margin-top: 10px;">
-	<form method="">
+	<form method="POST">
 		<div class="card">
 			<div class="card-header">
 				<b>{$t('formulario.formulario')}</b>: {$t('formulario.exemplo')}
@@ -28,7 +28,7 @@
 				<div class="row">
 					<div class="col-md-6">
 						<div class="form-group mb-0">
-							<label for="name" style="color: #000;">{$t('formulario.nome')}</label>
+							<label for="nome" style="color: #000;">{$t('formulario.nome')}</label>
 							<input id="nome" name="nome" type="text" class="form-control" />
 						</div>
 						<div class="form-group mb-0">
@@ -36,8 +36,8 @@
 							<input id="idade" name="idade" type="text" class="form-control" />
 						</div>
 						<div class="form-group mb-0">
-							<label for="name" style="color: #000;"
-								>{$t('formulario.assunto')}<i class="fas fa-asterisk text-danger"></i></label
+							<label for="assunto" style="color: #000;"
+								>{$t('formulario.assunto')}<i class="fas fa-asterisk text-danger" aria-hidden="true"></i></label
 							>
 							<input id="assunto" name="assunto" type="text" class="form-control" />
 						</div>
@@ -45,7 +45,7 @@
 					<div class="col-md-6">
 						<div class="form-group mb-0">
 							<label for="descricao" style="color: #000;"
-								>{$t('formulario.descricao_novo')}<i class="fas fa-asterisk text-danger"></i></label
+								>{$t('formulario.descricao_novo')}<i class="fas fa-asterisk text-danger" aria-hidden="true"></i></label
 							>
 							<textarea id="descricao" name="descricao" rows="9" class="form-control"></textarea>
 						</div>

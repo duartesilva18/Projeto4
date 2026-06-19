@@ -22,6 +22,13 @@
 	import { browser } from '$app/environment';
 	import { tick } from 'svelte';
 
+	/** @param {string} msg @param {string} [title] */
+	async function toastError(msg, title = 'ERRO') {
+		if (!browser) return;
+		const mod = await import('toastr');
+		mod.default?.error(msg, title, { timeOut: 8000, progressBar: true });
+	}
+
 	const DASHBOARD_FILTROS_STORAGE_KEY = 'dashboard-filtros-aplicados';
 	const MAX_ANOS_DASHBOARD = 4;
 
@@ -126,6 +133,7 @@
 		}
 	}
 
+	/** @param {{ ano: string, escola: string, curso: string, viz: string }} filtros */
 	function applyFiltrosState(filtros) {
 		filtroAno = filtros.ano;
 		filtroAnoAplicado = filtros.ano;
@@ -228,7 +236,13 @@
 	});
 
 	$effect(() => {
-		if (filtrosInicializados || anosDisponiveis.length === 0) return;
+		if (filtrosInicializados) return;
+		// Sem anos disponíveis não há filtros para inicializar, mas é preciso
+		// sair do estado "A carregar filtros…" para mostrar o estado vazio.
+		if (anosDisponiveis.length === 0) {
+			filtrosInicializados = true;
+			return;
+		}
 
 		const fromUrl = readFiltrosFromUrl();
 		const hasUrlFiltros =
@@ -366,7 +380,8 @@
 				width: el.scrollWidth,
 				height: el.scrollHeight,
 				onclone: (doc) => {
-					doc.querySelectorAll('.echart-host').forEach((host) => {
+					const pdfRoot = doc.getElementById('dashboard-pdf-content') ?? doc;
+					pdfRoot.querySelectorAll('.echart-host').forEach((host) => {
 						const src = host.querySelector('canvas');
 						if (!src || !(src instanceof HTMLCanvasElement)) return;
 						const clone = /** @type {HTMLCanvasElement} */ (src.cloneNode(true));
@@ -398,6 +413,7 @@
 			pdf.save(`dashboard-ipvc-${filtroAnoAplicado || 'sem-ano'}.pdf`);
 		} catch (err) {
 			console.error('Erro ao exportar PDF do dashboard', err);
+			await toastError('Não foi possível exportar o PDF. Tenta novamente.');
 		} finally {
 			mostrarCabecalhoPdf = false;
 			exportandoPdf = false;
@@ -415,12 +431,13 @@
 			class="btn botao-breadcrumb-on btn-sm fw-bold btn-search-hover pdf-export-btn"
 			onclick={exportarPDF}
 			disabled={exportandoPdf}
+			aria-busy={exportandoPdf}
 		>
 			{#if exportandoPdf}
-				<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
+				<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
 				A exportar…
 			{:else}
-				<i class="fa fa-file-pdf-o mr-1" aria-hidden="true"></i>
+				<i class="fa fa-file-pdf-o me-1" aria-hidden="true"></i>
 				Exportar PDF
 			{/if}
 		</button>
@@ -440,7 +457,7 @@
 			<label class="form-label" for="dash-filtro-ano">Ano letivo</label>
 			<select id="dash-filtro-ano" class="form-control form-control-sm" bind:value={filtroAno}>
 				{#if anosDisponiveis.length === 0}
-					<option value="" disabled selected>Carregando...</option>
+					<option value="" disabled>Sem anos disponíveis</option>
 				{:else}
 					{#each anosDisponiveis as ano}
 						<option value={ano}>{ano}</option>
@@ -511,6 +528,10 @@
 
 	{#if !filtrosInicializados}
 		<p class="text-muted mb-0 dashboard-context">A carregar filtros…</p>
+	{:else if anosDisponiveis.length === 0}
+		<p class="text-muted mb-0 dashboard-context">
+			Ainda não há anos letivos com dados. Importe ou crie dados para ver o dashboard.
+		</p>
 	{:else if linhasPorAno.length === 0}
 		<p class="text-muted mb-0 dashboard-context">
 			Sem dados para o ano letivo {filtroAnoAplicado || 'selecionado'}.
@@ -528,7 +549,7 @@
 			{#each kpiCards as card}
 				<article class="kpi-card">
 					<p class="kpi-card-label">{card.label}</p>
-					<p class="kpi-card-value">{formatKpiValue(card.value, card.format)}</p>
+					<p class="kpi-card-value">{formatKpiValue(card.value, /** @type {'number' | 'percent' | undefined} */ (card.format))}</p>
 					<p class="kpi-card-hint">{card.hint}</p>
 				</article>
 			{/each}

@@ -7,6 +7,7 @@ export async function load({fetch, depends, parent, data}) {
         titulo_pagina: "",
         // @ts-ignore
         sidebar_modulos: data.sidebar_modulos,
+        // @ts-ignore
         sidebar_areas: data.sidebar_areas,
         aside: data.aside
     };

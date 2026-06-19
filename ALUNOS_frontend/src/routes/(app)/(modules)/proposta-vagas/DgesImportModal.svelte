@@ -194,6 +194,8 @@
 	function onImportAnoChange(/** @type {Event} */ e) {
 		importAno = /** @type {HTMLSelectElement} */ (e.currentTarget).value;
 		importPreview = null;
+		importHistorico = [];
+		if (importHistoricoOpen) carregarHistorico();
 	}
 
 	function onImportOverwriteChange(/** @type {Event} */ e) {
@@ -343,12 +345,13 @@
 							class="import-help-toggle"
 							onclick={() => (importHelpOpen = !importHelpOpen)}
 							aria-expanded={importHelpOpen}
+							aria-controls="import-help-body"
 						>
 							<span>Que PDFs devo usar na página statcol da DGES?</span>
 							<span aria-hidden="true">{importHelpOpen ? '▾' : '▸'}</span>
 						</button>
 						{#if importHelpOpen}
-							<div class="import-help-body">
+							<div class="import-help-body" id="import-help-body">
 								{#if importFormatos?.suportados?.length}
 									<p class="mb-2 small text-muted">
 										PDFs da statcol DGES — pode carregar vários na mesma importação.
@@ -427,6 +430,8 @@
 							<div
 								class="import-file-zone"
 								class:import-file-zone--drag={importDragOver}
+								role="group"
+								aria-label="Zona de carregamento de ficheiros PDF"
 								ondragover={(e) => {
 									e.preventDefault();
 									importDragOver = true;
@@ -916,5 +921,123 @@
 	}
 	.modal-import-dges .import-table tr.is-skipped {
 		opacity: 0.55;
+	}
+	.modal-import-dges .import-format-list .import-ok {
+		margin-bottom: 0.25rem;
+	}
+	.modal-import-dges .import-no {
+		color: #842029;
+	}
+	.modal-import-dges .import-file-icon {
+		font-size: 1.5rem;
+		color: #0b5ed7;
+	}
+	.modal-import-dges .import-file-text {
+		font-weight: 600;
+		color: #344767;
+	}
+	.modal-import-dges .import-file-hint {
+		font-size: 0.72rem;
+		color: #6c757d;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+	.modal-import-dges .import-file-list {
+		list-style: none;
+		margin: 0.5rem 0 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+	.modal-import-dges .import-file-list li {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.75rem;
+		padding: 0.15rem 0.5rem;
+		border-radius: 999px;
+		background: #e7f1ff;
+		color: #0b5ed7;
+	}
+	.modal-import-dges .import-stat {
+		min-width: 4.5rem;
+	}
+	.modal-import-dges .import-summary-empty {
+		flex: 1 1 100%;
+		font-size: 0.8rem;
+		color: #856404;
+	}
+	.modal-import-dges .import-business-warnings {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.modal-import-dges .import-file-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+	.modal-import-dges .import-file-title {
+		margin: 0;
+		font-weight: 600;
+		color: #344767;
+		word-break: break-all;
+	}
+	.modal-import-dges .import-status-badge {
+		flex-shrink: 0;
+		font-size: 0.72rem;
+		font-weight: 600;
+		padding: 0.2rem 0.55rem;
+		border-radius: 999px;
+		white-space: nowrap;
+	}
+	.modal-import-dges .import-status-badge--ok {
+		background: #d1e7dd;
+		color: #0f5132;
+	}
+	.modal-import-dges .import-status-badge--warn {
+		background: #fff3cd;
+		color: #856404;
+	}
+	.modal-import-dges .import-status-badge--error {
+		background: #f8d7da;
+		color: #842029;
+	}
+	.modal-import-dges .import-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.35rem 0.85rem;
+		font-size: 0.82rem;
+		color: #495057;
+		margin-bottom: 0.5rem;
+	}
+	.modal-import-dges .import-format-badge {
+		font-size: 0.72rem;
+		font-weight: 600;
+		padding: 0.15rem 0.5rem;
+		border-radius: 6px;
+		background: #e7f1ff;
+		color: #0b5ed7;
+	}
+	.modal-import-dges .import-meta-label {
+		font-weight: 600;
+		color: #6c757d;
+	}
+	.modal-import-dges .import-tipo-select {
+		width: auto;
+		min-width: 12rem;
+	}
+	.modal-import-dges .import-empty-preview {
+		font-size: 0.82rem;
+		color: #6c757d;
+		padding: 0.5rem 0;
+	}
+	.modal-import-dges .import-apply-count {
+		font-weight: 600;
 	}
 </style>
