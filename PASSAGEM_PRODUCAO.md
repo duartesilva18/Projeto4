@@ -118,7 +118,7 @@ O browser usa `/ep/api/vagas/...`. O SvelteKit reencaminha para `PUBLIC_API_URL`
 2. Executar só as migrations que faltam no `bd.sql`:
    - `ALUNOS_webservices/sql/migrations/003_dges_import_preview.sql`
    - `ALUNOS_webservices/sql/migrations/004_dges_import_log.sql`
-3. Opcional: `seed_escolas_cursos.sql` na raiz (escolas e cursos, script idempotente) antes de criar anos letivos na app.
+3. Executar `seed_escolas_cursos.sql` na raiz (**obrigatório em BD nova**). Catálogo de escolas e cursos IPVC; script idempotente, disponibilizado pela orientadora **Sara Paiva**. Sem este ficheiro, `vagas.escola` e `vagas.curso` ficam vazios e «Nova tabela» / novo ano letivo não cria linhas de cursos. O `bd.sql` **não** inclui estes dados.
 
 As migrations `001` e `002` repetem tabelas já no `bd.sql`; só necessárias se o schema não foi criado a partir do `bd.sql`.
 
@@ -126,6 +126,7 @@ As migrations `001` e `002` repetem tabelas já no `bd.sql`; só necessárias se
 
 - Verificar em `sys.tables` quais tabelas `vagas.*` faltam.
 - Correr apenas os scripts em falta (`001`–`004` usam `IF NOT EXISTS`, são idempotentes).
+- **`seed_escolas_cursos.sql`:** só necessário se `vagas.escola` / `vagas.curso` estiverem vazios ou incompletos (script idempotente, fornecido por Sara Paiva). Se a BD de produção **já tiver** o catálogo, **não correr**.
 - Não restaurar backup por cima de dados reais sem acordo explícito.
 
 | Script | Tabela | Já no `bd.sql`? |

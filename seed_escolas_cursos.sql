@@ -1,3 +1,6 @@
+-- Catálogo de escolas e cursos IPVC (idempotente).
+-- Disponibilizado pela orientadora Sara Paiva.
+-- Obrigatório em BD nova, após bd.sql e migrations 003/004.
 -- =========================================================
 --  INSERIR ESCOLAS (idempotente)
 -- =========================================================
