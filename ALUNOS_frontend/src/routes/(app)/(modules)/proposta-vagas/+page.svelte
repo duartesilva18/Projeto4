@@ -346,16 +346,9 @@
 	// titulo da página
 	pageTitle.title = $t("exemplos_base.titulo_pagina");
 
-<<<<<<< Updated upstream
-	// designação do módulo e objetos abertos
-	sidebarOptions.currentModule = $t("exemplos_base.modulo");
-	// será sincronizado pelo $effect() quando o parâmetro "tab" mudar
-	sidebarOptions.currentObject = $t("exemplos_base.objeto");
-=======
 	// designação do módulo (sidebar estática; tabs ficam na própria página)
-	sidebarOptions.currentModule = $t("proposta_vagas.modulo");
-	sidebarOptions.currentObject = $t("proposta_vagas.objeto");
->>>>>>> Stashed changes
+	sidebarOptions.currentModule = $t("exemplos_base.modulo");
+	sidebarOptions.currentObject = $t("exemplos_base.objeto");
 	sidebarOptions.currentModuleId = pageIds.exemplos.base.moduleId;
 
 	// grupos expandidos (começam todos colapsados)
