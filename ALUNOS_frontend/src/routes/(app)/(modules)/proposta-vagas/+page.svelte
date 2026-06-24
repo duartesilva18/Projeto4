@@ -4,7 +4,7 @@
 	import { pageIds } from '$lib/js/pageIds.conf';
 	import { pageTitle } from '$lib/runes/pageTitle.rune.svelte';
 	import Breadcrum from "$lib/components/Breadcrum.svelte";
-	import { invalidate, invalidateAll } from '$app/navigation';
+	import { invalidate, invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import DgesImportModal from './DgesImportModal.svelte';
@@ -136,20 +136,39 @@
 	let filtroCursoAplicado = $state('all');
 
 	/**
-	 * Navegação por "páginas" via sidebar global:
+	 * Navegação por tabs na própria página:
 	 * - URL: /proposta-vagas?tab=regime-nacional|sobras|reingresso|...
 	 */
 	const tabConfig = {
-		'regime-nacional': { objectId: 1, label: 'Regime Nacional (inclui sobras/anulações)' },
-		'sobras': { objectId: 2, label: 'SOBRAS pós 3.ª fase' },
-		'reingresso-mudanca': { objectId: 3, label: 'Reingresso + Mudança par (Int/Curso)' },
-		'concursos': { objectId: 5, label: 'Concursos Especiais' },
-		'regimes-esp-internacionais': { objectId: 6, label: 'Regimes Esp + Internacionais' },
-		'totais': { objectId: 8, label: 'Totais' }
+		'regime-nacional': { label: 'Regime Nacional' },
+		'sobras': { label: 'SOBRAS pós 3.ª fase' },
+		'reingresso-mudanca': { label: 'Reingresso + Mudança' },
+		'concursos': { label: 'Concursos Especiais' },
+		'regimes-esp-internacionais': { label: 'Regimes Esp + Internacionais' },
+		'totais': { label: 'Totais' }
 	};
+
+	/** @type {(keyof typeof tabConfig)[]} */
+	const PAGE_TABS = [
+		'regime-nacional',
+		'reingresso-mudanca',
+		'concursos',
+		'regimes-esp-internacionais',
+		'totais'
+	];
 
 	/** @type {keyof typeof tabConfig | 'full'} */
 	let activeTab = $state(/** @type {keyof typeof tabConfig | 'full'} */ ('regime-nacional'));
+
+	/** Tab visível na barra (sobras/full mapeiam para regime-nacional). */
+	let displayTab = $derived(
+		activeTab === 'full' || activeTab === 'sobras' ? 'regime-nacional' : activeTab
+	);
+
+	/** @param {keyof typeof tabConfig} tabId */
+	function selectTab(tabId) {
+		goto(`/proposta-vagas?tab=${tabId}`, { keepFocus: true, noScroll: true });
+	}
 
 	/** Classes de layout da tabela por tab (densa vs equilibrada vs normal). */
 	function tableMainClass(tab) {
@@ -195,14 +214,6 @@
 		if (tNormalized && Object.prototype.hasOwnProperty.call(tabConfig, tNormalized)) {
 			activeTab = /** @type {keyof typeof tabConfig} */ (tNormalized);
 		}
-
-		const cfg =
-			tabConfig[
-				activeTab === 'full' ? 'regime-nacional' : activeTab
-			];
-
-		sidebarOptions.currentObjectId = cfg.objectId;
-		sidebarOptions.currentObject = cfg.label;
 	});
 
 	/** @type {CourseData | null} */
@@ -335,12 +346,17 @@
 	// titulo da página
 	pageTitle.title = $t("exemplos_base.titulo_pagina");
 
+<<<<<<< Updated upstream
 	// designação do módulo e objetos abertos
 	sidebarOptions.currentModule = $t("exemplos_base.modulo");
 	// será sincronizado pelo $effect() quando o parâmetro "tab" mudar
 	sidebarOptions.currentObject = $t("exemplos_base.objeto");
+=======
+	// designação do módulo (sidebar estática; tabs ficam na própria página)
+	sidebarOptions.currentModule = $t("proposta_vagas.modulo");
+	sidebarOptions.currentObject = $t("proposta_vagas.objeto");
+>>>>>>> Stashed changes
 	sidebarOptions.currentModuleId = pageIds.exemplos.base.moduleId;
-	sidebarOptions.currentObjectId = 1;
 
 	// grupos expandidos (começam todos colapsados)
 	/** @type {Set<string>} */
@@ -1873,6 +1889,63 @@
 		border-bottom: 2px solid #fff;
 		margin-bottom: -1px;
 	}
+
+	/* Tabs da página — estilo CoreUI / ON */
+	.pv-tabs-bar {
+		padding: 0.75rem 1rem 0;
+		margin-bottom: 1.25rem;
+		background: #fff;
+		border-bottom: 1px solid #c2cfd6;
+	}
+	.pv-page-tabs {
+		display: flex;
+		flex-wrap: nowrap;
+		border-bottom: none;
+		margin-bottom: 0;
+		padding-bottom: 2px;
+		overflow-x: auto;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+	.pv-page-tabs::-webkit-scrollbar {
+		display: none;
+	}
+	.pv-page-tabs .nav-item {
+		flex-shrink: 0;
+		margin-bottom: 0;
+	}
+	.pv-page-tabs button.nav-link {
+		appearance: none;
+		-webkit-appearance: none;
+		font: inherit;
+		line-height: 1.25;
+		padding: 0.65rem 1.1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #536c79;
+		white-space: nowrap;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 0;
+		margin-bottom: -1px;
+		cursor: pointer;
+		transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+	}
+	.pv-page-tabs button.nav-link:hover {
+		color: #20a8d8;
+		background: rgba(32, 168, 216, 0.07);
+		border-color: transparent;
+	}
+	.pv-page-tabs button.nav-link.active {
+		color: #20a8d8;
+		font-weight: 600;
+		background: #fff;
+		border-color: #c2cfd6 #c2cfd6 #fff;
+	}
+	.pv-page-tabs button.nav-link:focus-visible {
+		outline: 2px solid #20a8d8;
+		outline-offset: -2px;
+	}
 	.regime-edit-section {
 		border: 1px solid #e5e7eb;
 		border-radius: 12px;
@@ -1918,9 +1991,27 @@
 </style>
 
 <div>
-	<Breadcrum modulo={sidebarOptions.currentModule} objeto={sidebarOptions.currentObject} menu_items={items_breadcrum} />
+	<Breadcrum modulo={sidebarOptions.currentModule} menu_items={items_breadcrum} />
 
-		<div class="p-2 mt-4">
+	<div class="pv-tabs-bar">
+		<ul class="nav nav-tabs pv-page-tabs" role="tablist">
+			{#each PAGE_TABS as tabId}
+				<li class="nav-item" role="presentation">
+					<button
+						type="button"
+						class="nav-link {displayTab === tabId ? 'active' : ''}"
+						role="tab"
+						aria-selected={displayTab === tabId}
+						onclick={() => selectTab(tabId)}
+					>
+						{tabConfig[tabId].label}
+					</button>
+				</li>
+			{/each}
+		</ul>
+	</div>
+
+		<div class="p-3 pt-0">
 			<div class="row filter-controls g-2 align-items-end mb-2">
 				<div class="col-12 col-md-3">
 					<label class="form-label" for="filtro-ano">Ano letivo</label>
