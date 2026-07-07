@@ -333,6 +333,8 @@
 		const mensagem = chatInput.trim();
 		if (!mensagem || chatCarregando) return;
 
+		// Histórico sem a mensagem atual — o backend acrescenta-a como última mensagem.
+		const historicoParaEnvio = chatMensagens.slice(-8);
 		chatMensagens = [...chatMensagens, { role: 'user', content: mensagem }];
 		chatInput = '';
 		chatCarregando = true;
@@ -359,7 +361,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					mensagem,
-					historico: chatMensagens.slice(-8),
+					historico: historicoParaEnvio,
 					filtros: {
 						anoReferencia: filtrosAplicados.ano || filtroAno,
 						escola: filtrosAplicados.escola,
