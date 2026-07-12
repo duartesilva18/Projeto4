@@ -80,22 +80,22 @@
 		if (!preview?.files?.length) return '';
 		for (const file of preview.files) {
 			if (file.detection?.unsupportedReason) {
-				return `«${file.fileName}» não é suportado — remova-o ou escolha outro PDF.`;
+				return `«${file.fileName}» não é suportado: remova-o ou escolha outro PDF.`;
 			}
 			const tipo = importEffectiveTipo(file);
 			if ((!tipo || tipo === 'desconhecido') && !importFileHasTipoOverride(file)) {
 				return `Confirme o tipo de documento de «${file.fileName}» e pré-visualize novamente.`;
 			}
 			if (file.detection?.confianca === 'baixa' && !importFileHasTipoOverride(file)) {
-				return `Confiança baixa em «${file.fileName}» — confirme o tipo manualmente.`;
+				return `Confiança baixa em «${file.fileName}»: confirme o tipo manualmente.`;
 			}
 			if (file.detection?.phaseAmbiguous && !importFileHasTipoOverride(file)) {
-				return `Fase ambígua em «${file.fileName}» — confirme o tipo de documento manualmente.`;
+				return `Fase ambígua em «${file.fileName}»: confirme o tipo de documento manualmente.`;
 			}
 		}
 		const conflicts = Number(preview.summary?.conflictCount ?? 0);
 		if (conflicts > 0) {
-			return `${conflicts} conflito(s) entre ficheiros — remova PDFs duplicados ou gere a pré-visualização com um ficheiro por campo.`;
+			return `${conflicts} conflito(s) entre ficheiros: remova PDFs duplicados ou gere a pré-visualização com um ficheiro por campo.`;
 		}
 		return '';
 	}
@@ -367,14 +367,14 @@
 							<div class="import-help-body">
 								{#if importFormatos?.suportados?.length}
 									<p class="mb-2 small text-muted">
-										PDFs da statcol DGES — pode carregar vários na mesma importação.
+										PDFs da statcol DGES: pode carregar vários na mesma importação.
 									</p>
 									<ul class="import-format-list mb-2">
 										{#each importFormatos.suportados as fmt}
 											<li class="import-ok">
-												<strong>{fmt.label}</strong>
+												<strong>{fmt.label}:</strong>
 												{#if fmt.importa?.length}
-													<span class="text-success"> — {fmt.importa.join(', ')}</span>
+													<span class="text-success">{fmt.importa.join(', ')}</span>
 												{/if}
 												{#if fmt.naoImporta?.length}
 													<span class="text-muted"> ({fmt.naoImporta[0]})</span>
@@ -413,7 +413,7 @@
 											{#if entry.userId}
 												· {entry.userId}
 											{/if}
-											— {entry.updatedFields} campos, {entry.updatedCourses} cursos
+											· {entry.updatedFields} campos, {entry.updatedCourses} cursos
 											{#if entry.ficheiros?.length}
 												<br /><span class="text-muted">{entry.ficheiros.join(', ')}</span>
 											{/if}
@@ -547,7 +547,7 @@
 							</div>
 							{#if conflictCount > 0}
 								<p class="import-summary-empty mb-0">
-									Vários PDFs alteram o mesmo campo — prevalece o último ficheiro carregado.
+									Vários PDFs alteram o mesmo campo: prevalece o último ficheiro carregado.
 								</p>
 							{:else if fieldCount === 0}
 								<p class="import-summary-empty mb-0">
@@ -616,7 +616,7 @@
 														/** @type {HTMLSelectElement} */ (e.currentTarget).value
 													)}
 											>
-												<option value="">— Confirmar tipo —</option>
+												<option value="">Confirmar tipo…</option>
 												{#each importTipos as tipo}
 													<option value={tipo.id}>{tipo.label}</option>
 												{/each}
@@ -633,7 +633,7 @@
 								{#if filePreview.detection?.phaseAmbiguous && !importFileHasTipoOverride(filePreview)}
 									<div class="import-alert import-alert--warn">
 										<span aria-hidden="true">!</span>
-										<span>Fase ambígua — confirme o tipo e pré-visualize.</span>
+										<span>Fase ambígua: confirme o tipo e pré-visualize.</span>
 									</div>
 								{/if}
 								{#if filePreview.parseWarnings?.length}

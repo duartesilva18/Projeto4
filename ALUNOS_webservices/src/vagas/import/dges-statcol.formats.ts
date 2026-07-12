@@ -43,7 +43,7 @@ export const DGES_SUPPORTED_PDF_FORMATS: DgesSupportedFormat[] = [
 ];
 
 export const DGES_FORMAT_LABELS: Record<DgesFormatKind, string> = {
-  'ec25-ficha': 'Ficha ec25 — curso individual',
+  'ec25-ficha': 'Ficha ec25 (curso individual)',
   'estatistica-nacional': 'Estatística nacional',
   'classificacoes-nacional': 'Classificações nacionais',
   desconhecido: 'Formato não identificado'
@@ -77,7 +77,7 @@ export const DGES_STATCOL_PAGE_COVERAGE = [
     notas: 'PDF nacional com nota do último colocado por curso IPVC.'
   },
   {
-    statcolLabel: 'Ficha ec25 (exportação por curso — ec25_EEEECCCC.pdf)',
+    statcolLabel: 'Ficha ec25 (exportação por curso, ec25_EEEECCCC.pdf)',
     importavel: true,
     camposPropostaVagas: ['candidatos (fase detetada)', 'colocados (fase detetada)'],
     notas: 'Um curso IPVC de cada vez; não inclui vagas.'
@@ -86,13 +86,13 @@ export const DGES_STATCOL_PAGE_COVERAGE = [
     statcolLabel: 'Resumo da colocação por estabelecimento/curso',
     importavel: false,
     camposPropostaVagas: [],
-    notas: 'Não importável — use Estatística ou Classificações.'
+    notas: 'Não importável: use Estatística ou Classificações.'
   },
   {
     statcolLabel: 'Comparação entre anos por estabelecimento/curso',
     importavel: false,
     camposPropostaVagas: [],
-    notas: 'Não importável — dados históricos multi-ano.'
+    notas: 'Não importável: dados históricos multi-ano.'
   }
 ];
 
