@@ -143,6 +143,14 @@ export const DGES_DOC_LABELS: Record<DgesDocType, string> = {
 /** Códigos escola IPVC na BD (vagas.escola.codigo_escola) */
 export const IPVC_SCHOOL_CODES = new Set(['3161', '3162', '3163', '3164', '7075', 'ESDL']);
 
+/** Códigos de estabelecimento IPVC usados nos PDFs nacionais da DGES (a ESDL é 3165) */
+export const IPVC_DGES_CODES = new Set(['3161', '3162', '3163', '3164', '3165', '7075', 'ESDL']);
+
+/** Converte o código DGES do estabelecimento para o código usado na BD (3165 → ESDL) */
+export function toBdSchoolCode(codigoDges: string): string {
+  return codigoDges === '3165' ? 'ESDL' : codigoDges;
+}
+
 export const IPVC_NAME_PATTERNS = [
   /viana do castelo/i,
   /\bipvc\b/i,

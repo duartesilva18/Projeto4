@@ -25,18 +25,18 @@ export const DGES_SUPPORTED_PDF_FORMATS: DgesSupportedFormat[] = [
   },
   {
     id: 'ec25-ficha',
-    label: 'Ficha ec25 (curso individual)',
+    label: 'Estatística por par estabelecimento/curso (fichas)',
     description:
-      'PDF ec25_EEEECCCC.pdf — estatística detalhada de um único curso IPVC (Distribuições de notas).',
-    example: 'ec25_31619016.pdf',
+      'PDF nacional StCEsAA.pdf (todas as fichas) ou ec25_EEEECCCC.pdf (um curso) — estatística detalhada com distribuições de notas.',
+    example: 'StCEs25.pdf · ec25_31619016.pdf',
     importa: ['Candidatos', 'Colocados'],
     naoImporta: ['Vagas (não existem neste PDF)']
   },
   {
     id: 'classificacoes-nacional',
     label: 'Classificações nacionais (statcol)',
-    description: 'PDF «Classificações dos últimos colocados» com tabela IPVC.',
-    example: 'classificacoes_1fase_2025.pdf',
+    description: 'PDF «Classificações dos últimos colocados» com todos os estabelecimentos.',
+    example: 'fase1a25.pdf · fase2a25.pdf · fase3a25.pdf',
     importa: ['Classificação último colocado']
   }
 ];
