@@ -46,6 +46,25 @@ describe('dges-statcol.detect', () => {
     const result = detectDgesDocumentType(text, 'classificacoes_2fase.pdf');
     expect(result.tipo).toBe('classificacoes-2f');
   });
+
+  it('deteta fase pelo nome do ficheiro DGES (fase1a25.pdf, sem ambiguidade)', () => {
+    const text = readFileSync(
+      join(__dirname, '__fixtures__', 'classificacoes-1f-nacional-2025.txt'),
+      'utf8'
+    );
+    const result = detectDgesDocumentType(text, 'fase1a25 (1).pdf');
+    expect(result.tipo).toBe('classificacoes-1f');
+    expect(result.confianca).toBe('alta');
+    expect(result.phaseAmbiguous).toBeUndefined();
+  });
+
+  it('deteta fase 2 no ficheiro StCEs25F2.pdf', () => {
+    const text = readFileSync(join(__dirname, '__fixtures__', 'stces25-multifichas.txt'), 'utf8')
+      .replace(/1ª Fase/g, '2ª Fase');
+    const result = detectDgesDocumentType(text, 'StCEs25F2.pdf');
+    expect(result.tipo).toBe('estatistica-2f');
+    expect(result.formatKind).toBe('ec25-ficha');
+  });
 });
 
 describe('dges-statcol.parse-text', () => {
@@ -114,6 +133,66 @@ describe('dges-statcol.parse-text', () => {
     const { rows } = parseDgesText(withNoise, 'estatistica-1f', 'ec25_31619003.pdf');
     expect(rows.length).toBe(1);
     expect(rows[0].fieldValues?.colocados1F).toBe(2);
+  });
+
+  it('parseia classificações nacionais 2025 (fase1a25.pdf, linhas únicas)', () => {
+    const text = readFileSync(
+      join(__dirname, '__fixtures__', 'classificacoes-1f-nacional-2025.txt'),
+      'utf8'
+    );
+    const { rows } = parseDgesText(text, 'classificacoes-1f', 'fase1a25.pdf');
+    // 12 linhas IPVC no excerto; 2 sem nota (9003, L164) são ignoradas.
+    expect(rows.length).toBe(10);
+    expect(rows.every((r) => r.classificacao != null)).toBe(true);
+
+    const biotec = rows.find((r) => r.codigoDges === '9016');
+    expect(biotec?.classificacao).toBe(134.5);
+    expect(biotec?.codigoEscola).toBe('3161');
+    expect(biotec?.nomeCurso).toBe('Biotecnologia');
+
+    // Cursos de outras instituições (Setúbal, Viseu, Santarém, UTAD) ficam de fora.
+    expect(rows.some((r) => ['3155', '3181', '7065', '7080'].includes(r.codigoEscola ?? ''))).toBe(
+      false
+    );
+
+    // ESDL: código DGES 3165 convertido para o código da BD.
+    const esdl = rows.filter((r) => r.codigoEscola === 'ESDL');
+    expect(esdl.map((r) => r.codigoDges).sort()).toEqual(['9731', 'L375']);
+  });
+
+  it('parseia classificações nacionais 2025 com registos multi-linha (fase2a25.pdf)', () => {
+    const text = readFileSync(
+      join(__dirname, '__fixtures__', 'classificacoes-2f-nacional-2025.txt'),
+      'utf8'
+    );
+    const { rows } = parseDgesText(text, 'classificacoes-2f', 'fase2a25.pdf');
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+
+    const agronomia = rows.find((r) => r.codigoDges === '9003');
+    expect(agronomia).toBeUndefined(); // sem nota na 2.ª fase
+
+    const biotec = rows.find((r) => r.codigoDges === '9016');
+    expect(biotec?.classificacao).toBe(135.3);
+    expect(biotec?.nomeCurso).toBe('Biotecnologia');
+
+    const gerontologia = rows.find((r) => r.codigoDges === '9833');
+    expect(gerontologia?.classificacao).toBe(120.0);
+  });
+
+  it('parseia o PDF nacional StCEs25 (coleção de fichas, só cursos IPVC)', () => {
+    const text = readFileSync(join(__dirname, '__fixtures__', 'stces25-multifichas.txt'), 'utf8');
+    const { rows } = parseDgesText(text, 'estatistica-1f', 'StCEs25.pdf');
+
+    // Excerto: 1 ficha Açores (excluída) + 2 fichas 3164 + 2 fichas ESDL (3165).
+    expect(rows.length).toBe(4);
+    expect(rows.every((r) => r.codigoEscola === '3164' || r.codigoEscola === 'ESDL')).toBe(true);
+
+    const gestaoDist = rows.find((r) => r.codigoDges === '8464');
+    expect(gestaoDist?.nomeCurso).toBe('Gestão da Distribuição e Logística');
+    expect(gestaoDist?.fieldValues).toEqual({ candidatos1F: 31, colocados1F: 4 });
+
+    const esdl = rows.filter((r) => r.codigoEscola === 'ESDL');
+    expect(esdl.length).toBe(2);
   });
 
   it('combina várias fichas ec25 no mesmo lote', () => {

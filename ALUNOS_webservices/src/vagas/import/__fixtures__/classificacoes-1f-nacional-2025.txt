@@ -1,0 +1,28 @@
+ACESSO AO ENSINO SUPERIOR 2025 - 1ª FASE DO CONCURSO NACIONAL DE ACESSO
+Classificações dos últimos colocados pelo contingente geral
+Código
+3155 	9500 	Instituto Politécnico de Setúbal - Escola Superior de Saúde 	Enfermagem 	L1 	46 	46 	0 	0 	0 	149.3 	0
+3155 	9504 	Instituto Politécnico de Setúbal - Escola Superior de Saúde 	Fisioterapia 	L1 	44 	44 	0 	0 	0 	153.3 	0
+3155 	9890 	Instituto Politécnico de Setúbal - Escola Superior de Saúde 	Terapia da Fala 	L1 	26 	26 	0 	0 	0 	141.5 	0
+3161 	9003 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Agronomia 	L1 	20 	2 	0 	0 	0 	18
+3161 	9016 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Biotecnologia 	L1 	27 	6 	0 	0 	0 	134.5 	21
+3161 	9085 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Enfermagem Veterinária 	L1 	35 	21 	0 	1 	0 	126.8 	13
+3161 	L164 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Engenharia do Ambiente e Geoinformática 	L1 	20 	0 	0 	0 	0 	20
+3162 	9833 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Gerontologia 	L1 	30 	10 	0 	0 	0 	118.8 	20
+3162 	9853 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Educação Básica 	L1 	71 	71 	0 	0 	0 	141.5 	0
+3162 	L122 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Artes Plásticas e Tecnologias Artísticas 	L1 	30 	30 	0 	0 	0 	138.0 	0
+3162 	L284 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Artes e Cinema Digital 	L1 	20 	20 	0 	0 	0 	138.3 	0
+Direção-Geral do Ensino Superior 	Página 18 de 22
+
+-- 18 of 22 --
+
+ACESSO AO ENSINO SUPERIOR 2025 - 1ª FASE DO CONCURSO NACIONAL DE ACESSO
+Classificações dos últimos colocados pelo contingente geral
+Código
+3164 	L366 	Instituto Politécnico de Viana do Castelo - Escola Superior de Ciências Empresariais Marketing e Comunicação Empresariais 	L1 	45 	27 	0 	0 	0 	115.0 	18
+3165 	9731 	Instituto Politécnico de Viana do Castelo - Escola Superior de Desporto e Lazer 	Desporto e Lazer 	L1 	71 	30 	0 	1 	0 	122.0 	40
+3165 	L375 	Instituto Politécnico de Viana do Castelo - Escola Superior de Desporto e Lazer 	Animação Desportiva e Turismo Ativo 	L1 	30 	1 	0 	0 	0 	141.0 	29
+3181 	9054 	Instituto Politécnico de Viseu - Escola Superior de Educação de Viseu 	Comunicação Social 	L1 	64 	37 	0 	0 	0 	113.0 	27
+7065 	9500 	Instituto Politécnico de Santarém - Escola Superior de Saúde de Santarém 	Enfermagem 	L1 	78 	25 	0 	0 	0 	119.8 	53
+7075 	9500 	Instituto Politécnico de Viana do Castelo - Escola Superior de Saúde 	Enfermagem 	L1 	70 	70 	0 	0 	0 	148.8 	0
+7080 	9500 	Universidade de Trás-os-Montes e Alto Douro - Escola Superior de Saúde 	Enfermagem 	L1 	95 	95 	0 	0 	0 	148.5 	0

@@ -1,0 +1,451 @@
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+Estabelecimento: 0140
+Curso Superior: 8086
+Universidade dos Açores - Faculdade de Ciências Agrárias e do Ambiente
+Medicina Veterinária (Preparatórios)
+Prep. Mestrado Integrado
+DISTRIBUIÇÕES DE NOTAS DE CANDIDATURA
+Candidatos
+1 1
+5
+11 11 10
+25
+13
+16 17
+10
+2 1
+125 130 135 140 145 150 155 160 165 170 175 180 185
+Colocados
+1 1 1 2 3
+0
+1
+11
+0
+2
+0 0 0
+125 130 135 140 145 150 155 160 165 170 175 180 185
+OPÇÃO CANDIDATURA
+Opção Cands. % Cols. %
+1ª 19 12	15 55
+2ª 25 5	20 23
+3ª 39 5	32 23
+4ª 18 0	15 0
+5ª 21 0	17 0
+6ª 1 0	1 0
+Total 123 22
+ETAPA COLOCAÇÃO (contingente)
+Etapa Colocação Cands. % Cols. % Nota
+Açores Pr.Reg. 1 11 11	9 50	2 127.0
+Madeira 1 7 1	6 5	8 158.8
+ASE 1 0	1 0	10
+Pref. Regional 1 12 0	10 0	14
+Geral 123 10	100 45	17 157.5
+Total 154 22
+CURSO DO 12º ANO
+Curso 12º ano Cands. % Cols. %
+(15 mais frequentes)
+Ciências e Tecnologias 116 22	94 100	F60
+Cursos de Educação e Formação ( 2 0	2 0	610
+Biotecnologia (VT) 2 0	2 0	H17
+Tecnologias da Saúde 1 0	1 0	H38
+Animação Sociodesportiva (VT) 1 0	1 0	H14
+Ciências e Tecnologias 1 0	1 0	C60
+DISTRITO/CAE DE CANDIDATURA
+Distrito Origem Cands. % Cols. %
+Porto 20 2	16 9
+R. A. Açores 19 12	15 55
+Lisboa 10 1	8 5
+Aveiro 10 1	8 5
+R. A. Madeira 9 1	7 5
+Braga 8 0	7 0
+Faro 7 3	6 14
+Santarém 6 0	5 0
+Castelo Branco 5 0	4 0
+Coimbra 5 1	4 5
+Évora 4 0	3 0
+Guarda 4 0	3 0
+Beja 3 0	2 0
+Leiria 3 1	2 5
+Setúbal 2 0	2 0
+Viana do Castelo 2 0	2 0
+Vila Real 2 0	2 0
+Viseu 2 0	2 0
+Portalegre 2 0	2 0
+Total 123 22
+MÉDIAS DOS COLOCADOS
+Nota de candidatura 152.7
+Prova de ingresso 139.9
+Média do 12º ano 165.4
+Média do 10º/11º ano 165.4
+SEXO DOS CANDIDATOS
+Sexo Cands. % Cols. %
+Masc. 34 9	28 41
+Femin. 89 13	72 59
+Total 123 22
+OPÇÕES EXCLUÍDAS
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+Estabelecimento: 3164
+Curso Superior: 8464
+Instituto Politécnico de Viana do Castelo - Escola Superior de Ciências
+Empresariais
+Gestão da Distribuição e Logística
+Licenciatura
+DISTRIBUIÇÕES DE NOTAS DE CANDIDATURA
+Candidatos
+1
+5
+8
+2
+7
+2 2
+1 1 1
+0 0 0 0
+1
+120 125 130 135 140 145 150 155 160 165 170 175 180 185 190
+Colocados
+0
+3
+0 0
+1
+0 0 0 0 0 0 0 0 0 0
+120 125 130 135 140 145 150 155 160 165 170 175 180 185 190
+OPÇÃO CANDIDATURA
+Opção Cands. % Cols. %
+1ª 3 3	10 75
+2ª 4 0	13 0
+3ª 4 1	13 25
+4ª 4 0	13 0
+5ª 10 0	32 0
+6ª 6 0	19 0
+Total 31 4
+ETAPA COLOCAÇÃO (contingente)
+Etapa Colocação Cands. % Cols. % Nota
+Pref. Regional 1 17 2	55 50	14 123.5
+Geral 31 2	100 50	17 126.8
+Total 48 4
+CURSO DO 12º ANO
+Curso 12º ano Cands. % Cols. %
+(15 mais frequentes)
+Ciências Socioeconómicas 18 2	58 50	F61
+Ciências e Tecnologias 8 2	26 50	F60
+Equivalências Estrangeiras (Decret 1 0	3 0	950
+Técnico Auxiliar de Farmácia 1 0	3 0	R42
+Técnico Administrativo 1 0	3 0	R16
+Técnico de Gestão 1 0	3 0	P51
+Técnico de Eletrónica, Automação e 1 0	3 0	P44
+DISTRITO/CAE DE CANDIDATURA
+Distrito Origem Cands. % Cols. %
+Viana do Castelo 14 2	45 50
+Braga 11 2	35 50
+Porto 2 0	6 0
+Lisboa 2 0	6 0
+Viseu 1 0	3 0
+Setúbal 1 0	3 0
+Total 31 4
+MÉDIAS DOS COLOCADOS
+Nota de candidatura 128.5
+Prova de ingresso 115.4
+Média do 12º ano 141.5
+Média do 10º/11º ano 141.5
+SEXO DOS CANDIDATOS
+Sexo Cands. % Cols. %
+Masc. 19 3	61 75
+Femin. 12 1	39 25
+Total 31 4
+OPÇÕES EXCLUÍDAS
+Nota candidatura (s/mínima) 0
+Prova ingresso (não fez) 0
+Prova ingresso (s/mínima) 2
+Pré-requisito (não fez) 0
+MINISTÉRIO DA EDUCAÇÃO, CIÊNCIA E INOVAÇÃO - DIREÇÃO-GERAL DO ENSINO SUPERIOR Pág. S-950
+
+-- 950 of 1132 --
+
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+Estabelecimento: 3164
+Curso Superior: 8516
+Instituto Politécnico de Viana do Castelo - Escola Superior de Ciências
+Empresariais
+Organização e Gestão Empresariais
+Licenciatura
+DISTRIBUIÇÕES DE NOTAS DE CANDIDATURA
+Candidatos
+1
+4
+9
+3
+16
+10
+7
+3 4 4
+1
+120 125 130 135 140 145 150 155 160 165 170
+Colocados
+0
+1
+6
+1
+4
+1
+0 0
+1
+0 0
+120 125 130 135 140 145 150 155 160 165 170
+OPÇÃO CANDIDATURA
+Opção Cands. % Cols. %
+1ª 6 6	10 43
+2ª 8 6	13 43
+3ª 20 0	32 0
+4ª 14 2	23 14
+5ª 9 0	15 0
+6ª 5 0	8 0
+Total 62 14
+ETAPA COLOCAÇÃO (contingente)
+Etapa Colocação Cands. % Cols. % Nota
+ASE 1 0	2 0	10
+Emigrantes 1 0	2 0	12
+Pref. Regional 1 37 9	60 64	14 127.5
+Geral 62 5	100 36	17 124.8
+Total 101 14
+CURSO DO 12º ANO
+Curso 12º ano Cands. % Cols. %
+(15 mais frequentes)
+Ciências Socioeconómicas 39 10	63 71	F61
+Ciências e Tecnologias 13 1	21 7	F60
+Línguas e Humanidades 2 0	3 0	F62
+Equivalências Estrangeiras (Decret 1 1	2 7	950
+Técnico de Vendas e Marketing 1 1	2 7	U26
+Técnico de Gestão 1 1	2 7	P51
+Emigrantes 1 0	2 0	900
+Técnico Administrativo 1 0	2 0	R16
+Técnico de Eletrónica, Automação e 1 0	2 0	P44
+Técnico de Contabilidade 1 0	2 0	P31
+Artes Visuais 1 0	2 0	F64
+DISTRITO/CAE DE CANDIDATURA
+Distrito Origem Cands. % Cols. %
+Braga 29 2	47 14
+Viana do Castelo 20 10	32 71
+Porto 6 2	10 14
+Viseu 2 0	3 0
+Vila Real 1 0	2 0
+Lisboa 1 0	2 0
+Faro 1 0	2 0
+Coimbra 1 0	2 0
+Aveiro 1 0	2 0
+Total 62 14
+MÉDIAS DOS COLOCADOS
+Nota de candidatura 135.6
+Prova de ingresso 123.4
+Média do 12º ano 147.6
+Média do 10º/11º ano 147.6
+SEXO DOS CANDIDATOS
+Sexo Cands. % Cols. %
+Masc. 27 5	44 36
+Femin. 35 9	56 64
+Total 62 14
+OPÇÕES EXCLUÍDAS
+Nota candidatura (s/mínima) 0
+Prova ingresso (não fez) 4
+Prova ingresso (s/mínima) 3
+Pré-requisito (não fez) 0
+MINISTÉRIO DA EDUCAÇÃO, CIÊNCIA E INOVAÇÃO - DIREÇÃO-GERAL DO ENSINO SUPERIOR Pág. S-951
+
+-- 951 of 1132 --
+
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+Estabelecimento: 3165
+Curso Superior: 9731
+Instituto Politécnico de Viana do Castelo - Escola Superior de Desporto e Lazer
+Desporto e Lazer
+Licenciatura
+DISTRIBUIÇÕES DE NOTAS DE CANDIDATURA
+Candidatos
+1 2 2
+12 14
+21
+11
+22
+11
+7
+4 2 3 1
+110 115 120 125 130 135 140 145 150 155 160 165 170 175
+Colocados
+1 1 1
+5
+6
+5
+6
+2
+3
+1
+0 0 0 0
+110 115 120 125 130 135 140 145 150 155 160 165 170 175
+OPÇÃO CANDIDATURA
+Opção Cands. % Cols. %
+1ª 15 15	13 48
+2ª 22 11	19 35
+3ª 25 3	22 10
+4ª 17 2	15 6
+5ª 11 0	10 0
+6ª 23 0	20 0
+Total 113 31
+ETAPA COLOCAÇÃO (contingente)
+Etapa Colocação Cands. % Cols. % Nota
+Açores 1 2 0	2 0	4
+ASE 4 0	4 0	10
+Emigrantes 1 1	1 3	12 111.5
+Pref. Regional 1 26 17	23 55	14 113.8
+Pref. Habilitacion 10 1	9 3	16 153.0
+Geral 113 12	100 39	17 122.0
+Total 156 31
+CURSO DO 12º ANO
+Curso 12º ano Cands. % Cols. %
+(15 mais frequentes)
+Línguas e Humanidades 48 12	42 39	F62
+Ciências e Tecnologias 40 9	35 29	F60
+Técnico de Desporto 9 3	8 10	R15
+Ciências Socioeconómicas 4 3	4 10	F61
+Tecnologias e Segurança Alimentar 1 1	1 3	H37
+Emigrantes 1 1	1 3	900
+Recorrente - Línguas e Humanidad 1 1	1 3	C82
+Cursos EFA, Formações Modulares 1 1	1 3	966
+Artes Visuais 1 0	1 0	F64
+Recorrente - Ciências Socioeconóm 1 0	1 0	C81
+Técnico Auxiliar de Saúde 1 0	1 0	P11
+Técnico de Comunicação - Marketin 1 0	1 0	P28
+Técnico de Gestão 1 0	1 0	P51
+Técnico de Gestão e Programação 1 0	1 0	P56
+Técnico de Desporto 1 0	1 0	T54
+DISTRITO/CAE DE CANDIDATURA
+Distrito Origem Cands. % Cols. %
+Braga 40 16	35 52
+Viana do Castelo 32 9	28 29
+Porto 19 5	17 16
+Aveiro 7 1	6 3
+Vila Real 4 0	4 0
+R. A. Açores 2 0	2 0
+Viseu 2 0	2 0
+Lisboa 2 0	2 0
+Leiria 2 0	2 0
+R. A. Madeira 1 0	1 0
+Santarém 1 0	1 0
+Coimbra 1 0	1 0
+Total 113 31
+MÉDIAS DOS COLOCADOS
+Nota de candidatura 134.1
+Prova de ingresso 124.6
+Média do 12º ano 143.5
+Média do 10º/11º ano 143.5
+SEXO DOS CANDIDATOS
+Sexo Cands. % Cols. %
+Masc. 79 29	70 94
+Femin. 34 2	30 6
+Total 113 31
+OPÇÕES EXCLUÍDAS
+Nota candidatura (s/mínima) 0
+Prova ingresso (não fez) 3
+Prova ingresso (s/mínima) 11
+Pré-requisito (não fez) 0
+MINISTÉRIO DA EDUCAÇÃO, CIÊNCIA E INOVAÇÃO - DIREÇÃO-GERAL DO ENSINO SUPERIOR Pág. S-954
+
+-- 954 of 1132 --
+
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+Estabelecimento: 3165
+Curso Superior: L375
+Instituto Politécnico de Viana do Castelo - Escola Superior de Desporto e Lazer
+Animação Desportiva e Turismo Ativo
+Licenciatura
+DISTRIBUIÇÕES DE NOTAS DE CANDIDATURA
+Candidatos
+1
+2
+3
+2
+1 1 1 1
+0 0
+1
+0
+1
+120 125 130 135 140 145 150 155 160 165 170 175 180
+Colocados
+0 0 0 0
+1
+0 0 0 0 0 0 0 0
+120 125 130 135 140 145 150 155 160 165 170 175 180
+OPÇÃO CANDIDATURA
+Opção Cands. % Cols. %
+2ª 2 0	14 0
+3ª 2 0	14 0
+4ª 3 0	21 0
+5ª 1 0	7 0
+6ª 6 1	43 100
+Total 14 1
+ETAPA COLOCAÇÃO (contingente)
+Etapa Colocação Cands. % Cols. % Nota
+Pref. Regional 1 2 0	14 0	14
+Geral 14 1	100 100	17 141.0
+Total 16 1
+CURSO DO 12º ANO
+Curso 12º ano Cands. % Cols. %
+(15 mais frequentes)
+Ciências e Tecnologias 7 1	50 100	F60
+Línguas e Humanidades 4 0	29 0	F62
+Ciências Socioeconómicas 2 0	14 0	F61
+Recorrente - Línguas e Humanidad 1 0	7 0	C82
+DISTRITO/CAE DE CANDIDATURA
+Distrito Origem Cands. % Cols. %
+Braga 6 0	43 0
+Viana do Castelo 2 0	14 0
+Porto 2 0	14 0
+Aveiro 2 0	14 0
+Setúbal 1 1	7 100
+Lisboa 1 0	7 0
+Total 14 1
+MÉDIAS DOS COLOCADOS
+Nota de candidatura 141.0
+Prova de ingresso 124.0
+Média do 12º ano 158.0
+Média do 10º/11º ano 158.0
+SEXO DOS CANDIDATOS
+Sexo Cands. % Cols. %
+Masc. 12 1	86 100
+Femin. 2 0	14 0
+Total 14 1
+OPÇÕES EXCLUÍDAS
+Nota candidatura (s/mínima) 0
+Prova ingresso (não fez) 2
+Prova ingresso (s/mínima) 1
+Pré-requisito (não fez) 0
+MINISTÉRIO DA EDUCAÇÃO, CIÊNCIA E INOVAÇÃO - DIREÇÃO-GERAL DO ENSINO SUPERIOR Pág. S-955
+
+-- 955 of 1132 --
+
+ACESSO AO ENSINO SUPERIOR 2025 1ª Fase do Concurso Nacional de Acesso
+Estabelecimento: 3181
+Curso Superior: 9054
+Instituto Politécnico de Viseu - Escola Superior de Educação de Viseu
+Comunicação Social
+Licenciatura
+DISTRIBUIÇÕES DE NOTAS DE CANDIDATURA
+Candidatos
+3 4
+17
+22
+17
+23
+6 7
+4 5
+2 1
+5
+115 120 125 130 135 140 145 150 155 160 165 170 175
+Colocados
+3
+2
+6
+9
+4
+8
+0
+1 1 1 1

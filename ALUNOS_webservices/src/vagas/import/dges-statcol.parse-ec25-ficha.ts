@@ -1,10 +1,15 @@
 import {
-  IPVC_SCHOOL_CODES,
+  IPVC_DGES_CODES,
+  toBdSchoolCode,
   type DgesDocType,
   type DgesParsedRow
 } from './dges-statcol.types';
 
-/** Ficha DGES ec25_XXXXXXXX — estatística detalhada de um único curso */
+/**
+ * Ficha DGES ec25_XXXXXXXX — estatística detalhada de um curso. O PDF nacional
+ * «Estatística por par estabelecimento/curso» (StCEs25.pdf) é uma coleção destas
+ * fichas, uma por página — o parser trata ambos os casos.
+ */
 export function isEc25FichaCurso(text: string, fileName: string): boolean {
   if (/^ec\d{2}_\d+\.pdf$/i.test(fileName)) return true;
   return (
@@ -21,13 +26,30 @@ function phaseFieldSuffix(docType: DgesDocType): '1F' | '2F' | '3F' | null {
   return null;
 }
 
+/** Linha do grau académico que fecha o cabeçalho da ficha */
+const FICHA_DEGREE_LINE = /^(Licenciatura|Mestrado|Prep\.|TeSP|Doutoramento|Curso de)/i;
+
 function extractCourseName(lines: string[], cursoLineIdx: number): string {
+  // O nome do curso é a linha imediatamente antes do grau (Licenciatura, Mestrado, …);
+  // o nome da instituição pode ocupar mais do que uma linha, por isso não serve
+  // avançar linha a linha a partir do cabeçalho.
+  for (let i = cursoLineIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (/^DISTRIBUI/i.test(line)) break;
+    if (FICHA_DEGREE_LINE.test(line)) {
+      for (let j = i - 1; j > cursoLineIdx; j--) {
+        const candidate = lines[j].trim();
+        if (candidate) return candidate;
+      }
+      return '';
+    }
+  }
+  // Fallback: primeira linha "plausível" após o cabeçalho (formato antigo).
   for (let i = cursoLineIdx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     if (/^Curso Superior:/i.test(line)) continue;
     if (/Instituto Polit[eé]cnico/i.test(line)) continue;
-    if (/^(Licenciatura|Mestrado|TeSP|Doutoramento|Curso de)/i.test(line)) continue;
     if (/^DISTRIBUI/i.test(line)) break;
     if (/^\d/.test(line)) continue;
     return line;
@@ -44,38 +66,49 @@ function extractOpcaoTotais(text: string): { candidatos: number; colocados: numb
   return { candidatos: Number(section[1]), colocados: Number(section[2]) };
 }
 
-export function parseEc25FichaCurso(text: string, docType: DgesDocType): DgesParsedRow[] {
-  if (!isEc25FichaCurso(text, '')) return [];
-  const phase = phaseFieldSuffix(docType);
-  if (!phase) return [];
+function parseSingleFicha(block: string, phase: '1F' | '2F' | '3F'): DgesParsedRow | null {
+  const estabMatch = block.match(/Estabelecimento:\s*(\d{3,4}|ESDL)/i);
+  // Códigos de curso podem ter prefixo de letra (L164, A017, …)
+  const cursoMatch = block.match(/Curso Superior:\s*([A-Z]?\d{1,5})/i);
+  if (!estabMatch || !cursoMatch) return null;
 
-  const estabMatch = text.match(/Estabelecimento:\s*(\d{3,4}|ESDL)/i);
-  const cursoMatch = text.match(/Curso Superior:\s*(\d{1,5})/i);
-  if (!estabMatch || !cursoMatch) return [];
-
-  const codigoEscola = estabMatch[1];
-  if (!IPVC_SCHOOL_CODES.has(codigoEscola)) return [];
+  const codigoEscolaDges = estabMatch[1];
+  if (!IPVC_DGES_CODES.has(codigoEscolaDges)) return null;
 
   const codigoDges = cursoMatch[1];
-  const lines = text.split(/\r?\n/).map((l) => l.trim());
+  const lines = block.split(/\r?\n/).map((l) => l.trim());
   const cursoIdx = lines.findIndex((l) => /^Curso Superior:/i.test(l));
   const nomeCurso = cursoIdx >= 0 ? extractCourseName(lines, cursoIdx) : '';
-  const totais = extractOpcaoTotais(text);
-  if (!totais) return [];
+  const totais = extractOpcaoTotais(block);
+  if (!totais) return null;
 
   const fieldValues: Record<string, number> = {
     [`candidatos${phase}`]: totais.candidatos,
     [`colocados${phase}`]: totais.colocados
   };
 
-  return [
-    {
-      codigoEscola,
-      codigoDges,
-      nomeCurso: nomeCurso || `Curso ${codigoDges}`,
-      fieldValues
-    }
-  ];
+  return {
+    codigoEscola: toBdSchoolCode(codigoEscolaDges),
+    codigoDges,
+    nomeCurso: nomeCurso || `Curso ${codigoDges}`,
+    fieldValues
+  };
+}
+
+export function parseEc25FichaCurso(text: string, docType: DgesDocType): DgesParsedRow[] {
+  if (!isEc25FichaCurso(text, '')) return [];
+  const phase = phaseFieldSuffix(docType);
+  if (!phase) return [];
+
+  // O PDF nacional (StCEs25.pdf) concatena centenas de fichas — divide-se por
+  // "Estabelecimento:" e processa-se cada uma; ficheiros ec25_… têm uma só ficha.
+  const blocks = text.split(/(?=Estabelecimento:\s*(?:\d{3,4}|ESDL))/i);
+  const rows: DgesParsedRow[] = [];
+  for (const block of blocks) {
+    const row = parseSingleFicha(block, phase);
+    if (row) rows.push(row);
+  }
+  return rows;
 }
 
 export function ec25FichaParseWarning(): string {

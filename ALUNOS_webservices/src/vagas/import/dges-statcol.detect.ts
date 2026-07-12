@@ -59,6 +59,14 @@ function detectPhase(
   text: string,
   fileName: string
 ): { phase: '1' | '2' | '3' | null; phaseAmbiguous: boolean } {
+  // Nome do ficheiro DGES é inequívoco: fase1a25.pdf, fase2a25.pdf, StCEs25F2.pdf, …
+  // (o texto repete "sobras para a 2ª fase" em todas as páginas e gera empates).
+  const fileMatch =
+    fileName.match(/fase[\s_-]?([123])(?!\d)/i) ?? fileName.match(/f([123])(?=\D|$)/i);
+  if (fileMatch) {
+    return { phase: fileMatch[1] as '1' | '2' | '3', phaseAmbiguous: false };
+  }
+
   const combined = `${fileName} ${text.slice(0, 4000)}`;
   const scores = {
     '1': scorePhase(combined, '1'),
