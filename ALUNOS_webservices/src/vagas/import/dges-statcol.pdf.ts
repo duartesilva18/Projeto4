@@ -13,7 +13,7 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     // (ex.: download incompleto) e entra em modo de recuperação.
     if (/URI malformed/i.test(msg)) {
       throw new BadRequestException(
-        'Não foi possível ler o PDF — o ficheiro parece estar corrompido ou o download ficou incompleto. ' +
+        'Não foi possível ler o PDF: o ficheiro parece estar corrompido ou o download ficou incompleto. ' +
           'Volte a descarregar o PDF da página statcol da DGES e tente novamente.'
       );
     }

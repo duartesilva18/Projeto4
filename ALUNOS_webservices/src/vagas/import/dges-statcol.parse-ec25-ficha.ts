@@ -6,9 +6,9 @@ import {
 } from './dges-statcol.types';
 
 /**
- * Ficha DGES ec25_XXXXXXXX — estatística detalhada de um curso. O PDF nacional
+ * Ficha DGES ec25_XXXXXXXX: estatística detalhada de um curso. O PDF nacional
  * «Estatística por par estabelecimento/curso» (StCEs25.pdf) é uma coleção destas
- * fichas, uma por página — o parser trata ambos os casos.
+ * fichas, uma por página; o parser trata ambos os casos.
  */
 export function isEc25FichaCurso(text: string, fileName: string): boolean {
   if (/^ec\d{2}_\d+\.pdf$/i.test(fileName)) return true;
@@ -100,7 +100,7 @@ export function parseEc25FichaCurso(text: string, docType: DgesDocType): DgesPar
   const phase = phaseFieldSuffix(docType);
   if (!phase) return [];
 
-  // O PDF nacional (StCEs25.pdf) concatena centenas de fichas — divide-se por
+  // O PDF nacional (StCEs25.pdf) concatena centenas de fichas: divide-se por
   // "Estabelecimento:" e processa-se cada uma; ficheiros ec25_… têm uma só ficha.
   const blocks = text.split(/(?=Estabelecimento:\s*(?:\d{3,4}|ESDL))/i);
   const rows: DgesParsedRow[] = [];

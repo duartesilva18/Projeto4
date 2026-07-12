@@ -108,7 +108,7 @@ Importação DGES (`preview`, `apply`): em produção exige utilizador autentica
 
 O browser usa `/ep/api/vagas/...`. O SvelteKit reencaminha para `PUBLIC_API_URL` (`ALUNOS_frontend/src/routes/(endpoints)/ep/api/vagas/`).
 
-**Limite de upload (importação DGES):** o frontend usa `adapter-node`, cujo limite de body por defeito é **512 KB** — insuficiente para os PDFs da DGES (o `StCEs25.pdf` tem ~8 MB). Definir a variável de ambiente no serviço do frontend:
+**Limite de upload (importação DGES):** o frontend usa `adapter-node`, cujo limite de body por defeito é **512 KB**, insuficiente para os PDFs da DGES (o `StCEs25.pdf` tem ~8 MB). Definir a variável de ambiente no serviço do frontend:
 
 ```
 BODY_SIZE_LIMIT=15M

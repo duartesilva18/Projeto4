@@ -294,7 +294,7 @@
 			try {
 				data = JSON.parse(raw);
 			} catch {
-				// resposta não-JSON (ex.: 413 do servidor) — tratada abaixo
+				// resposta não-JSON (ex.: 413 do servidor), tratada abaixo
 			}
 			if (!res.ok) {
 				if (res.status === 413) {

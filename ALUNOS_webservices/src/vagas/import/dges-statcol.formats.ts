@@ -27,7 +27,7 @@ export const DGES_SUPPORTED_PDF_FORMATS: DgesSupportedFormat[] = [
     id: 'ec25-ficha',
     label: 'Estatística por par estabelecimento/curso (fichas)',
     description:
-      'PDF nacional StCEsAA.pdf (todas as fichas) ou ec25_EEEECCCC.pdf (um curso) — estatística detalhada com distribuições de notas.',
+      'PDF nacional StCEsAA.pdf (todas as fichas) ou ec25_EEEECCCC.pdf (um curso): estatística detalhada com distribuições de notas.',
     example: 'StCEs25.pdf · ec25_31619016.pdf',
     importa: ['Candidatos', 'Colocados'],
     naoImporta: ['Vagas (não existem neste PDF)']
