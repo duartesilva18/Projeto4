@@ -20,7 +20,7 @@ export interface DgesDetectionResult {
   formatLabel?: string;
   /** PDF reconhecido mas não suportado (ex.: Resumo, Comparação) */
   unsupportedReason?: string;
-  /** Empate na deteção de fase — confirmar tipo manualmente */
+  /** Empate na deteção de fase: confirmar tipo manualmente */
   phaseAmbiguous?: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface DgesParsedRow {
   nomeCurso: string;
   /** vagas, candidatos, colocados (estatística) */
   valores?: number[];
-  /** campos explícitos (ficha ec25 — só candidatos/colocados, etc.) */
+  /** campos explícitos (ficha ec25: só candidatos/colocados, etc.) */
   fieldValues?: Record<string, number>;
   /** classificação último colocado */
   classificacao?: number;
@@ -131,12 +131,12 @@ export const DGES_DOC_FIELD_MAP: Record<
 };
 
 export const DGES_DOC_LABELS: Record<DgesDocType, string> = {
-  'estatistica-1f': '1.ª fase — Estatística par estabelecimento/curso',
-  'estatistica-2f': '2.ª fase — Estatística par estabelecimento/curso',
-  'estatistica-3f': '3.ª fase — Estatística par estabelecimento/curso',
-  'classificacoes-1f': '1.ª fase — Classificações últimos colocados',
-  'classificacoes-2f': '2.ª fase — Classificações últimos colocados',
-  'classificacoes-3f': '3.ª fase — Classificações últimos colocados',
+  'estatistica-1f': '1.ª fase: Estatística par estabelecimento/curso',
+  'estatistica-2f': '2.ª fase: Estatística par estabelecimento/curso',
+  'estatistica-3f': '3.ª fase: Estatística par estabelecimento/curso',
+  'classificacoes-1f': '1.ª fase: Classificações últimos colocados',
+  'classificacoes-2f': '2.ª fase: Classificações últimos colocados',
+  'classificacoes-3f': '3.ª fase: Classificações últimos colocados',
   desconhecido: 'Tipo de documento não identificado'
 };
 

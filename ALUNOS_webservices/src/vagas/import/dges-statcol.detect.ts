@@ -31,7 +31,7 @@ function buildDetectionResult(
   const formatKind = resolveFormatKind(text, fileName, tipo);
   let label = extra?.label ?? DGES_DOC_LABELS[tipo];
   if (formatKind === 'ec25-ficha' && tipo.startsWith('estatistica')) {
-    label = `${DGES_DOC_LABELS[tipo]} — ficha ec25`;
+    label = `${DGES_DOC_LABELS[tipo]} (ficha ec25)`;
     confianca = 'alta';
   }
   return {

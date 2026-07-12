@@ -114,6 +114,6 @@ export function parseEc25FichaCurso(text: string, docType: DgesDocType): DgesPar
 export function ec25FichaParseWarning(): string {
   return (
     'Ficha individual do curso (ec25): importados candidatos e colocados. ' +
-    'Vagas não existem neste PDF — use o PDF nacional «Estatística por par estabelecimento/curso» para vagas.'
+    'Vagas não existem neste PDF: use o PDF nacional «Estatística por par estabelecimento/curso» para vagas.'
   );
 }

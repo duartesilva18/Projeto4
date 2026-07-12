@@ -94,7 +94,7 @@ export class DgesImportService {
         parseWarnings.unshift(detection.unsupportedReason);
       } else if (detection.phaseAmbiguous && !override) {
         parseWarnings.unshift(
-          'Fase do concurso ambígua — confirme o tipo de documento manualmente.'
+          'Fase do concurso ambígua: confirme o tipo de documento manualmente.'
         );
       } else if (docType === 'desconhecido' && !override) {
         parseWarnings.unshift(
@@ -117,7 +117,7 @@ export class DgesImportService {
           if (fieldSources.has(key)) {
             conflictCount++;
             parseWarnings.push(
-              `Conflito: ${field.fieldKey} para ${m.courseName} também em «${fieldSources.get(key)}» — prevalece «${file.originalname}».`
+              `Conflito: ${field.fieldKey} para ${m.courseName} também em «${fieldSources.get(key)}»; prevalece «${file.originalname}».`
             );
           }
           fieldSources.set(key, file.originalname);
