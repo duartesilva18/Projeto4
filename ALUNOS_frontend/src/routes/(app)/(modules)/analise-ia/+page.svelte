@@ -333,7 +333,7 @@
 		const mensagem = chatInput.trim();
 		if (!mensagem || chatCarregando) return;
 
-		// Histórico sem a mensagem atual — o backend acrescenta-a como última mensagem.
+		// Histórico sem a mensagem atual: o backend acrescenta-a como última mensagem.
 		const historicoParaEnvio = chatMensagens.slice(-8);
 		chatMensagens = [...chatMensagens, { role: 'user', content: mensagem }];
 		chatInput = '';
