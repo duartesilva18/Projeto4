@@ -156,9 +156,33 @@ function collectNacionalRecords(lines: string[]): string[] {
   return records;
 }
 
+/**
+ * Colunas inteiras da cauda numérica por fase (sem contar a nota decimal).
+ * A última coluna (vagas sobrantes) pode ser omitida, daí o intervalo de comprimentos.
+ * - 1F: iniciais, colocados, desemp., sem class., vaga adic., [sobras]
+ * - 2F: iniciais, recolocação, colocados, desemp., sem class., vaga adic., vaga adic. alíneas, [sobrantes]
+ * - 3F: iniciais 3F, recolocação, vaga adic. sem class., vaga adic. desemp., colocados, [sobrantes]
+ */
+const NACIONAL_TAIL_LAYOUT: Record<
+  '1F' | '2F' | '3F',
+  { min: number; max: number; vagas: number[]; colocados: number }
+> = {
+  '1F': { min: 5, max: 6, vagas: [0], colocados: 1 },
+  '2F': { min: 7, max: 8, vagas: [0, 1], colocados: 2 },
+  '3F': { min: 5, max: 6, vagas: [0, 1], colocados: 4 }
+};
+
+function classificacoesPhaseSuffix(docType: DgesDocType): '1F' | '2F' | '3F' {
+  if (docType === 'classificacoes-2f') return '2F';
+  if (docType === 'classificacoes-3f') return '3F';
+  return '1F';
+}
+
 /** Extrai as linhas IPVC do formato nacional 2025 de classificações. */
-function parseClassificacoesNacional(lines: string[]): DgesParsedRow[] {
+function parseClassificacoesNacional(lines: string[], docType: DgesDocType): DgesParsedRow[] {
   const rows: DgesParsedRow[] = [];
+  const phase = classificacoesPhaseSuffix(docType);
+  const layout = NACIONAL_TAIL_LAYOUT[phase];
 
   for (const record of collectNacionalRecords(lines)) {
     const tokens = record.split(' ');
@@ -169,11 +193,26 @@ function parseClassificacoesNacional(lines: string[]): DgesParsedRow[] {
     const numericTail = trailingNumericTokens(tokens);
     if (numericTail.length < 4) continue;
 
-    // A nota do último colocado é o único decimal na cauda numérica; sem colocados não há nota.
+    const fieldValues: Record<string, number> = {};
+
+    // A nota do último colocado é o único decimal na cauda; sem colocados não há nota.
     const notaToken = numericTail.find((t) => NOTA_DECIMAL.test(t) && /[.,]/.test(t));
-    if (!notaToken) continue;
-    const classificacao = Number(notaToken.replace(',', '.'));
-    if (!Number.isFinite(classificacao)) continue;
+    if (notaToken) {
+      const classificacao = Number(notaToken.replace(',', '.'));
+      if (Number.isFinite(classificacao)) {
+        fieldValues[`classificacaoUltimo${phase}`] = classificacao;
+      }
+    }
+
+    // Vagas e colocados: só quando a cauda inteira tem o nº de colunas esperado
+    // para a fase (evita mapear posições erradas em linhas atípicas).
+    const intTail = numericTail.filter((t) => !/[.,]/.test(t)).map(Number);
+    if (intTail.length >= layout.min && intTail.length <= layout.max) {
+      fieldValues[`vagas${phase}`] = layout.vagas.reduce((sum, i) => sum + (intTail[i] ?? 0), 0);
+      fieldValues[`colocados${phase}`] = intTail[layout.colocados] ?? 0;
+    }
+
+    if (Object.keys(fieldValues).length === 0) continue;
 
     // Nome do curso: entre o código e a cauda numérica, sem prefixo da instituição nem grau.
     const nameTokens = tokens.slice(2, tokens.length - numericTail.length);
@@ -188,7 +227,7 @@ function parseClassificacoesNacional(lines: string[]): DgesParsedRow[] {
       codigoEscola: toBdSchoolCode(codigoEscolaDges),
       codigoDges,
       nomeCurso: nomeCurso || `Curso ${codigoDges}`,
-      classificacao
+      fieldValues
     });
   }
 
@@ -224,8 +263,12 @@ export function parseDgesText(
   // "codInstit codCurso instituição curso grau números". Se reconhecer linhas IPVC,
   // usa-o; caso contrário cai no formato antigo (secções por instituição).
   if (docType.startsWith('classificacoes')) {
-    const nacionalRows = parseClassificacoesNacional(lines);
+    const nacionalRows = parseClassificacoesNacional(lines, docType);
     if (nacionalRows.length > 0) {
+      warnings.push(
+        'PDF nacional de classificações: além da nota do último colocado, importa também ' +
+          'vagas e colocados da fase (na 2.ª/3.ª fase, vagas = iniciais + recolocação).'
+      );
       return { rows: nacionalRows, warnings };
     }
   }

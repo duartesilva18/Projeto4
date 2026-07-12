@@ -141,14 +141,21 @@ describe('dges-statcol.parse-text', () => {
       'utf8'
     );
     const { rows } = parseDgesText(text, 'classificacoes-1f', 'fase1a25.pdf');
-    // 12 linhas IPVC no excerto; 2 sem nota (9003, L164) são ignoradas.
-    expect(rows.length).toBe(10);
-    expect(rows.every((r) => r.classificacao != null)).toBe(true);
+    // 12 linhas IPVC no excerto; cursos sem nota (9003, L164) importam vagas/colocados na mesma.
+    expect(rows.length).toBe(12);
 
     const biotec = rows.find((r) => r.codigoDges === '9016');
-    expect(biotec?.classificacao).toBe(134.5);
     expect(biotec?.codigoEscola).toBe('3161');
     expect(biotec?.nomeCurso).toBe('Biotecnologia');
+    expect(biotec?.fieldValues).toEqual({
+      classificacaoUltimo1F: 134.5,
+      vagas1F: 27,
+      colocados1F: 6
+    });
+
+    // Sem nota na 1.ª fase: importa só vagas e colocados.
+    const agronomia = rows.find((r) => r.codigoDges === '9003');
+    expect(agronomia?.fieldValues).toEqual({ vagas1F: 20, colocados1F: 2 });
 
     // Cursos de outras instituições (Setúbal, Viseu, Santarém, UTAD) ficam de fora.
     expect(rows.some((r) => ['3155', '3181', '7065', '7080'].includes(r.codigoEscola ?? ''))).toBe(
@@ -168,15 +175,46 @@ describe('dges-statcol.parse-text', () => {
     const { rows } = parseDgesText(text, 'classificacoes-2f', 'fase2a25.pdf');
     expect(rows.length).toBeGreaterThanOrEqual(6);
 
-    const agronomia = rows.find((r) => r.codigoDges === '9003');
-    expect(agronomia).toBeUndefined(); // sem nota na 2.ª fase
-
+    // 2.ª fase: vagas = iniciais + recolocação (Biotecnologia: 21 + 2).
     const biotec = rows.find((r) => r.codigoDges === '9016');
-    expect(biotec?.classificacao).toBe(135.3);
     expect(biotec?.nomeCurso).toBe('Biotecnologia');
+    expect(biotec?.fieldValues).toEqual({
+      classificacaoUltimo2F: 135.3,
+      vagas2F: 23,
+      colocados2F: 1
+    });
+
+    // Sem nota na 2.ª fase: importa vagas/colocados na mesma.
+    const agronomia = rows.find((r) => r.codigoDges === '9003');
+    expect(agronomia?.fieldValues).toEqual({ vagas2F: 18, colocados2F: 0 });
 
     const gerontologia = rows.find((r) => r.codigoDges === '9833');
-    expect(gerontologia?.classificacao).toBe(120.0);
+    expect(gerontologia?.fieldValues).toEqual({
+      classificacaoUltimo2F: 120.0,
+      vagas2F: 24,
+      colocados2F: 10
+    });
+  });
+
+  it('parseia classificações nacionais da 3.ª fase (fase3a25.pdf, layout próprio)', () => {
+    const text = readFileSync(
+      join(__dirname, '__fixtures__', 'classificacoes-3f-nacional-2025.txt'),
+      'utf8'
+    );
+    const { rows } = parseDgesText(text, 'classificacoes-3f', 'fase3a25.pdf');
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+    expect(rows.every((r) => r.codigoEscola?.startsWith('316'))).toBe(true);
+
+    // 3.ª fase: colocados é a 5.ª coluna inteira; vagas = iniciais 3F + recolocação.
+    const gerontologia = rows.find((r) => r.codigoDges === '9833');
+    expect(gerontologia?.fieldValues).toEqual({
+      classificacaoUltimo3F: 133.0,
+      vagas3F: 5,
+      colocados3F: 1
+    });
+
+    const biotec = rows.find((r) => r.codigoDges === '9016');
+    expect(biotec?.fieldValues).toEqual({ vagas3F: 12, colocados3F: 0 });
   });
 
   it('parseia o PDF nacional StCEs25 (coleção de fichas, só cursos IPVC)', () => {

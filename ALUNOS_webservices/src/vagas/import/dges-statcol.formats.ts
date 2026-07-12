@@ -37,7 +37,8 @@ export const DGES_SUPPORTED_PDF_FORMATS: DgesSupportedFormat[] = [
     label: 'Classificações nacionais (statcol)',
     description: 'PDF «Classificações dos últimos colocados» com todos os estabelecimentos.',
     example: 'fase1a25.pdf · fase2a25.pdf · fase3a25.pdf',
-    importa: ['Classificação último colocado']
+    importa: ['Classificação último colocado', 'Vagas', 'Colocados'],
+    naoImporta: ['Candidatos (use o PDF de fichas StCEsAA.pdf)']
   }
 ];
 

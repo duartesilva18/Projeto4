@@ -108,6 +108,14 @@ Importação DGES (`preview`, `apply`): em produção exige utilizador autentica
 
 O browser usa `/ep/api/vagas/...`. O SvelteKit reencaminha para `PUBLIC_API_URL` (`ALUNOS_frontend/src/routes/(endpoints)/ep/api/vagas/`).
 
+**Limite de upload (importação DGES):** o frontend usa `adapter-node`, cujo limite de body por defeito é **512 KB** — insuficiente para os PDFs da DGES (o `StCEs25.pdf` tem ~8 MB). Definir a variável de ambiente no serviço do frontend:
+
+```
+BODY_SIZE_LIMIT=15M
+```
+
+Sem isto, a pré-visualização da importação falha com HTTP 413 para PDFs grandes. O backend aceita até 10 MB por ficheiro (`DGES_MAX_FILE_BYTES`).
+
 ---
 
 ## Base de dados
@@ -144,7 +152,7 @@ As migrations `001` e `002` repetem tabelas já no `bd.sql`; só necessárias se
 1. Checkout da branch `main` (ou a acordada para o release).
 2. Base de dados conforme secção acima (nova ou existente).
 3. **Backend** (`ALUNOS_webservices/`): `npm i --force`; `npm run build`; publicar; testar `GET /vagas/tabela`.
-4. **Frontend** (`ALUNOS_frontend/`): `npm i --force`; `npm run build`; publicar.
+4. **Frontend** (`ALUNOS_frontend/`): `npm i --force`; `npm run build`; publicar com `BODY_SIZE_LIMIT=15M` no ambiente (ver secção Proxy).
 5. No browser: `/proposta-vagas`, `/dashboard`, `/comparar-anos`, `/gestao-tabelas`.
 6. Importação DGES: confirmar gravação em `campo_origem`.
 7. Em Gestão de Tabelas: criar ano letivo se ainda não existir (cursos vêm do catálogo na BD / seed).

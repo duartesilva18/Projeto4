@@ -1,0 +1,20 @@
+ACESSO AO ENSINO SUPERIOR 2025 - 3ª FASE DO CONCURSO NACIONAL DE ACESSO
+Classificações dos últimos colocados
+Código
+Instit.
+3154 	L100 	Instituto Politécnico de Setúbal - Escola Superior de Tecnologia do Barreiro 	Tecnologias do Petróleo 	L1 	29 	0 	0 	0 	0 	29
+3155 	9500 	Instituto Politécnico de Setúbal - Escola Superior de Saúde 	Enfermagem 	L1 	0 	0 	0 	0 	0
+3155 	9504 	Instituto Politécnico de Setúbal - Escola Superior de Saúde 	Fisioterapia 	L1 	0 	0 	0 	0 	0
+3155 	9890 	Instituto Politécnico de Setúbal - Escola Superior de Saúde 	Terapia da Fala 	L1 	0 	0 	0 	0 	0
+3161 	9003 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Agronomia 	L1 	10 	0 	0 	0 	0 	10
+3161 	9016 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Biotecnologia 	L1 	10 	2 	0 	0 	0 	12
+3161 	9085 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Enfermagem Veterinária 	L1 	15 	0 	0 	0 	0 	15
+3161 	L164 	Instituto Politécnico de Viana do Castelo - Escola Superior Agrária 	Engenharia do Ambiente e Geoinformática 	L1 	10 	0 	0 	0 	0 	10
+3162 	9833 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Gerontologia 	L1 	5 	0 	0 	0 	1 	133.0 	4
+3162 	9853 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Educação Básica 	L1 	0 	0 	0 	0 	0 	0
+3162 	L122 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Artes Plásticas e Tecnologias Artísticas 	L1 	1 	0 	0 	0 	1 	147.0 	0
+3162 	L284 	Instituto Politécnico de Viana do Castelo - Escola Superior de Educação 	Artes e Cinema Digital 	L1 	1 	1 	0 	0 	2 	141.8 	0
+3163 	8407 	Instituto Politécnico de Viana do Castelo - Escola Superior de Tecnologia e Gestão 	Engenharia da Computação Gráfica e Multimédia 	L1 	20 	0 	0 	0 	0 	20
+3163 	9119 	Instituto Politécnico de Viana do Castelo - Escola Superior de Tecnologia e Gestão 	Engenharia Informática 	L1 	0 	0 	0 	0 	0 	0
+3163 	9123 	Instituto Politécnico de Viana do Castelo - Escola Superior de Tecnologia e Gestão 	Engenharia Mecânica 	L1 	0 	0 	0 	0 	0 	0
+3163 	9147 	Instituto Politécnico de Viana do Castelo - Escola Superior de Tecnologia e Gestão 	Gestão 	L1 	2 	0 	0 	0 	2 	143.8 	0

@@ -242,6 +242,10 @@
 	function setImportTipoOverride(fileName, tipo) {
 		importTipoOverrides = { ...importTipoOverrides, [fileName]: tipo };
 		importPreview = null;
+		// Regera a pré-visualização automaticamente com o novo tipo.
+		if (importFiles.length && !importPreviewLoading) {
+			void previewImportDges();
+		}
 	}
 
 	async function carregarHistorico() {
@@ -286,9 +290,21 @@
 				fd.append('tipoOverrides', JSON.stringify(importTipoOverrides));
 			}
 			const res = await fetch('/ep/api/vagas/import/dges/preview', { method: 'POST', body: fd });
-			const data = await res.json();
+			const raw = await res.text();
+			/** @type {any} */
+			let data = null;
+			try {
+				data = JSON.parse(raw);
+			} catch {
+				// resposta não-JSON (ex.: 413 do servidor) — tratada abaixo
+			}
 			if (!res.ok) {
-				throw new Error(data.message || 'Erro na pré-visualização');
+				if (res.status === 413) {
+					throw new Error(
+						'Os ficheiros excedem o limite de upload do servidor. Reduza o número de PDFs por importação ou peça para aumentar o limite (BODY_SIZE_LIMIT).'
+					);
+				}
+				throw new Error(data?.message || 'Erro na pré-visualização');
 			}
 			importPreview = data;
 		} catch (err) {
@@ -634,9 +650,6 @@
 											</div>
 										{/if}
 									{/each}
-								{/if}
-								{#if importTipoOverrides[filePreview.fileName] && !importPreviewLoading}
-									<p class="small text-primary mb-2">Tipo alterado — clique «Pré-visualizar».</p>
 								{/if}
 								{#if filePreview.matched?.length}
 									<div class="table-responsive" style="max-height: 240px; overflow: auto;">
