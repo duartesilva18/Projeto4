@@ -11,3 +11,4 @@ dist/
 # IDE e sistema
 .idea/
 .DS_Store
+.claude/
