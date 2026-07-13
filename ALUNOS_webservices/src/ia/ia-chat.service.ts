@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { IaContextBuilder } from './ia-context.builder';
 import { IaForecastService } from './ia-forecast.service';
-import { IaOpenAiClient } from './ia-openai.client';
+import { ChatMessage, IaOpenAiClient } from './ia-openai.client';
+import { IA_CHAT_TOOLS, IaChatTools } from './ia-tools';
 import { CHAT_SYSTEM_PROMPT } from './ia-prompts';
 import { IaChatRequest, IaChatResponse } from './ia.types';
 
@@ -13,10 +14,33 @@ export class IaChatService {
   constructor(
     private readonly contextBuilder: IaContextBuilder,
     private readonly forecastService: IaForecastService,
-    private readonly openai: IaOpenAiClient
+    private readonly openai: IaOpenAiClient,
+    private readonly tools: IaChatTools
   ) {}
 
   async chat(req: IaChatRequest): Promise<IaChatResponse> {
+    const resposta = await this.openai.chat({
+      messages: await this.buildMessages(req),
+      tools: IA_CHAT_TOOLS,
+      toolExecutor: (name, args) => this.tools.execute(name, args)
+    });
+
+    return { resposta, generatedAt: new Date().toISOString() };
+  }
+
+  /** Igual a chat(), mas encaminha a resposta por pedaços (streaming SSE). */
+  async chatStream(req: IaChatRequest, onDelta: (delta: string) => void): Promise<IaChatResponse> {
+    const resposta = await this.openai.chat({
+      messages: await this.buildMessages(req),
+      tools: IA_CHAT_TOOLS,
+      toolExecutor: (name, args) => this.tools.execute(name, args),
+      onDelta
+    });
+
+    return { resposta, generatedAt: new Date().toISOString() };
+  }
+
+  private async buildMessages(req: IaChatRequest): Promise<ChatMessage[]> {
     const ctx = await this.contextBuilder.build(req.filtros ?? {});
     const forecast = this.forecastService.forecastFromContext(ctx);
 
@@ -29,19 +53,15 @@ export class IaChatService {
       previsoes: forecast.metricas
     };
 
-    const historico = (req.historico ?? [])
+    const historico: ChatMessage[] = (req.historico ?? [])
       .slice(-MAX_HISTORICO)
       .map((m) => ({ role: m.role, content: m.content }));
 
-    const resposta = await this.openai.chat({
-      messages: [
-        { role: 'system', content: CHAT_SYSTEM_PROMPT },
-        { role: 'system', content: `Contexto de dados:\n${JSON.stringify(contexto)}` },
-        ...historico,
-        { role: 'user', content: req.mensagem }
-      ]
-    });
-
-    return { resposta, generatedAt: new Date().toISOString() };
+    return [
+      { role: 'system', content: CHAT_SYSTEM_PROMPT },
+      { role: 'system', content: `Contexto de dados:\n${JSON.stringify(contexto)}` },
+      ...historico,
+      { role: 'user', content: req.mensagem }
+    ];
   }
 }

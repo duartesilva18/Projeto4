@@ -27,6 +27,8 @@ export interface IaForecastResponse {
 export interface IaAnalyzeRequest extends IaForecastRequest {
   /** Previsão já calculada no cliente; se ausente o servidor recalcula. */
   forecast?: IaForecastResponse;
+  /** Ignora a cache e gera um relatório novo. */
+  force?: boolean;
 }
 
 export interface IaAnalyzeTendencia {
@@ -52,6 +54,8 @@ export interface IaAnalyzeResponse {
   alertas: IaAnalyzeAlerta[];
   limitacoes: string;
   generatedAt: string;
+  /** true quando o relatório veio da cache (dados inalterados). */
+  cached?: boolean;
 }
 
 export interface IaChatMessage {

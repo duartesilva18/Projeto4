@@ -126,6 +126,7 @@ Sem isto, a pré-visualização da importação falha com HTTP 413 para PDFs gra
 2. Executar só as migrations que faltam no `bd.sql`:
    - `ALUNOS_webservices/sql/migrations/003_dges_import_preview.sql`
    - `ALUNOS_webservices/sql/migrations/004_dges_import_log.sql`
+   - `ALUNOS_webservices/sql/migrations/005_ia_analise_cache.sql`
 3. Opcional: `seed_escolas_cursos.sql` na raiz (escolas e cursos, script idempotente) antes de criar anos letivos na app.
 
 As migrations `001` e `002` repetem tabelas já no `bd.sql`; só necessárias se o schema não foi criado a partir do `bd.sql`.
@@ -142,6 +143,7 @@ As migrations `001` e `002` repetem tabelas já no `bd.sql`; só necessárias se
 | `002_campo_origem.sql` | `campo_origem` | Sim |
 | `003_dges_import_preview.sql` | `dges_import_preview` | Não |
 | `004_dges_import_log.sql` | `dges_import_log` | Não |
+| `005_ia_analise_cache.sql` | `ia_analise_cache` | Não |
 
 ---
 

@@ -147,14 +147,14 @@
 		}
 	}
 
-	/** @param {Record<string, unknown>} payload */
-	async function gerarAnalise(payload) {
+	/** @param {Record<string, unknown>} payload @param {boolean} [force] Ignora a cache do relatório */
+	async function gerarAnalise(payload, force = false) {
 		carregandoAnalise = true;
 		try {
 			const res = await fetch('/ep/api/ia/analyze', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ ...payload, forecast })
+				body: JSON.stringify({ ...payload, forecast, force })
 			});
 			if (!res.ok) throw new Error('Falha ao gerar relatório');
 			analise = await res.json();
@@ -164,6 +164,20 @@
 		} finally {
 			carregandoAnalise = false;
 		}
+	}
+
+	/** Regenera o relatório ignorando a cache (mesmos filtros aplicados). */
+	async function regenerarAnalise() {
+		if (carregandoAnalise || modoDemo || !forecast) return;
+		await gerarAnalise(
+			{
+				anoReferencia: filtrosAplicados.ano,
+				escola: filtrosAplicados.escola,
+				curso: filtrosAplicados.curso,
+				metricas: IA_METRIC_IDS
+			},
+			true
+		);
 	}
 
 	/** Carrega dados fictícios realistas para pré-visualizar a página sem dados na BD. */
@@ -356,7 +370,7 @@
 		}
 
 		try {
-			const res = await fetch('/ep/api/ia/chat', {
+			const res = await fetch('/ep/api/ia/chat/stream', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -369,9 +383,8 @@
 					}
 				})
 			});
-			if (!res.ok) throw new Error('Falha no chat');
-			const data = await res.json();
-			chatMensagens = [...chatMensagens, { role: 'assistant', content: data.resposta ?? '' }];
+			if (!res.ok || !res.body) throw new Error('Falha no chat');
+			await lerChatStream(res.body);
 		} catch (e) {
 			console.error(e);
 			chatMensagens = [
@@ -380,6 +393,60 @@
 			];
 		} finally {
 			chatCarregando = false;
+		}
+	}
+
+	/**
+	 * Lê o stream SSE do chat: cada evento traz um pedaço da resposta (delta),
+	 * que vai crescendo na última mensagem do assistente em tempo real.
+	 * @param {ReadableStream<Uint8Array>} body
+	 */
+	async function lerChatStream(body) {
+		const reader = body.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+		let comecou = false;
+
+		/** @param {string} delta */
+		const appendDelta = (delta) => {
+			if (!comecou) {
+				comecou = true;
+				chatMensagens = [...chatMensagens, { role: 'assistant', content: delta }];
+				return;
+			}
+			chatMensagens = chatMensagens.map((m, i) =>
+				i === chatMensagens.length - 1 ? { ...m, content: m.content + delta } : m
+			);
+		};
+
+		/** @param {string} line */
+		const processLine = (line) => {
+			if (!line.startsWith('data: ')) return;
+			let payload;
+			try {
+				payload = JSON.parse(line.slice(6));
+			} catch {
+				return;
+			}
+			if (payload.delta) appendDelta(payload.delta);
+			if (payload.error) throw new Error(payload.error);
+		};
+
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			let idx;
+			while ((idx = buffer.indexOf('\n')) >= 0) {
+				const line = buffer.slice(0, idx).replace(/\r$/, '');
+				buffer = buffer.slice(idx + 1);
+				processLine(line);
+			}
+		}
+		if (buffer) processLine(buffer);
+
+		if (!comecou) {
+			throw new Error('Resposta vazia do chat');
 		}
 	}
 
@@ -619,10 +686,26 @@
 		<section class="ia-report">
 			<div class="ia-report-head">
 				<h2 class="charts-layer-heading">Relatório IA</h2>
+				{#if analise?.cached}
+					<span class="ia-cached-badge" title="Relatório reutilizado da cache: os dados e filtros não mudaram desde a última geração.">
+						<i class="fa fa-refresh" aria-hidden="true"></i> Reutilizado
+					</span>
+				{/if}
 				{#if analiseGeradaEm}
 					<span class="ia-report-time">
 						<i class="fa fa-clock-o" aria-hidden="true"></i> {analiseGeradaEm}
 					</span>
+				{/if}
+				{#if analise && !modoDemo}
+					<button
+						type="button"
+						class="ia-regen-btn"
+						title="Gerar um relatório novo, ignorando a cache"
+						disabled={carregandoAnalise}
+						onclick={regenerarAnalise}
+					>
+						<i class="fa fa-repeat" aria-hidden="true"></i> Regenerar
+					</button>
 				{/if}
 			</div>
 			{#if carregandoAnalise}
@@ -1333,6 +1416,41 @@
 		font-size: 11px;
 		color: #adb5bd;
 		white-space: nowrap;
+	}
+
+	.ia-cached-badge {
+		font-size: 10px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: #0b5ed7;
+		background: #e7f1ff;
+		border-radius: 999px;
+		padding: 2px 10px;
+		white-space: nowrap;
+	}
+
+	.ia-regen-btn {
+		font-size: 11px;
+		font-weight: 600;
+		color: #0b5ed7;
+		background: transparent;
+		border: 1px solid #cfe2ff;
+		border-radius: 6px;
+		padding: 2px 10px;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: background 0.15s ease, border-color 0.15s ease;
+	}
+
+	.ia-regen-btn:hover:not(:disabled) {
+		background: #e7f1ff;
+		border-color: #9ec5fe;
+	}
+
+	.ia-regen-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	/* Hero / Resumo */

@@ -1,16 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { createHash } from 'crypto';
+import { Injectable, Logger } from '@nestjs/common';
 import { IaContextBuilder } from './ia-context.builder';
 import { IaForecastService } from './ia-forecast.service';
 import { IaOpenAiClient } from './ia-openai.client';
+import { IaAnaliseCacheRepository } from './ia-analise-cache.repository';
 import { ANALYZE_SYSTEM_PROMPT } from './ia-prompts';
 import { IaAnalyzeRequest, IaAnalyzeResponse } from './ia.types';
 
 @Injectable()
 export class IaAnalysisService {
+  private readonly logger = new Logger(IaAnalysisService.name);
+
   constructor(
     private readonly contextBuilder: IaContextBuilder,
     private readonly forecastService: IaForecastService,
-    private readonly openai: IaOpenAiClient
+    private readonly openai: IaOpenAiClient,
+    private readonly cache: IaAnaliseCacheRepository
   ) {}
 
   async analyze(req: IaAnalyzeRequest): Promise<IaAnalyzeResponse> {
@@ -27,6 +32,15 @@ export class IaAnalysisService {
       avisos: forecast.avisos
     };
 
+    // O hash cobre filtros, histórico e previsões: se nada mudou, o relatório
+    // guardado continua válido e evita-se nova chamada à OpenAI.
+    const dadosHash = createHash('sha256').update(JSON.stringify(contexto)).digest('hex');
+
+    if (!req.force) {
+      const hit = await this.findCached(ctx.escola, ctx.curso, forecast.anoReferencia, dadosHash);
+      if (hit) return hit;
+    }
+
     const content = await this.openai.chat({
       jsonMode: true,
       messages: [
@@ -37,7 +51,7 @@ export class IaAnalysisService {
 
     const parsed = this.safeParse(content);
 
-    return {
+    const result: IaAnalyzeResponse = {
       resumo: parsed.resumo ?? '',
       tendencias: Array.isArray(parsed.tendencias) ? parsed.tendencias : [],
       padroes: Array.isArray(parsed.padroes) ? parsed.padroes : [],
@@ -45,8 +59,54 @@ export class IaAnalysisService {
       limitacoes:
         parsed.limitacoes ??
         'Previsão indicativa baseada em regressão linear sobre poucos anos.',
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      cached: false
     };
+
+    // Falha ao gravar a cache não deve impedir a resposta.
+    try {
+      await this.cache.save({
+        escola: ctx.escola,
+        curso: ctx.curso,
+        anoReferencia: forecast.anoReferencia,
+        dadosHash,
+        relatorio: JSON.stringify(result)
+      });
+    } catch (e) {
+      this.logger.warn(`Falha ao guardar relatório na cache: ${e}`);
+    }
+
+    return result;
+  }
+
+  listHistorico(limit = 20) {
+    return this.cache.listHistorico(limit);
+  }
+
+  private async findCached(
+    escola: string,
+    curso: string,
+    anoReferencia: string,
+    dadosHash: string
+  ): Promise<IaAnalyzeResponse | null> {
+    try {
+      const entry = await this.cache.find(escola, curso, anoReferencia, dadosHash);
+      if (!entry) return null;
+      const parsed = this.safeParse(entry.relatorio);
+      if (!parsed.resumo) return null;
+      return {
+        resumo: parsed.resumo,
+        tendencias: Array.isArray(parsed.tendencias) ? parsed.tendencias : [],
+        padroes: Array.isArray(parsed.padroes) ? parsed.padroes : [],
+        alertas: Array.isArray(parsed.alertas) ? parsed.alertas : [],
+        limitacoes: parsed.limitacoes ?? '',
+        generatedAt: entry.createdAt,
+        cached: true
+      };
+    } catch (e) {
+      this.logger.warn(`Falha ao consultar cache de relatórios: ${e}`);
+      return null;
+    }
   }
 
   private safeParse(content: string): Partial<IaAnalyzeResponse> {
