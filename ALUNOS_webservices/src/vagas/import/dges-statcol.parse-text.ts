@@ -6,6 +6,7 @@ import {
   type DgesDocType,
   type DgesParsedRow
 } from './dges-statcol.types';
+import { ILLEGIBLE_MARKER } from './dges-statcol.pdf';
 import {
   ec25FichaParseWarning,
   isEc25FichaCurso,
@@ -185,6 +186,9 @@ function parseClassificacoesNacional(lines: string[], docType: DgesDocType): Dge
   const layout = NACIONAL_TAIL_LAYOUT[phase];
 
   for (const record of collectNacionalRecords(lines)) {
+    // Registos com células fundidas na extração: os valores seriam errados.
+    if (record.includes(ILLEGIBLE_MARKER)) continue;
+
     const tokens = record.split(' ');
     const codigoEscolaDges = tokens[0];
     if (!IPVC_DGES_CODES.has(codigoEscolaDges)) continue;

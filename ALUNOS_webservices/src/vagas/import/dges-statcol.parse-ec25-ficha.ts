@@ -57,13 +57,24 @@ function extractCourseName(lines: string[], cursoLineIdx: number): string {
   return '';
 }
 
-/** Extrai candidatos/colocados da secção «Opção candidatura» */
+/**
+ * Extrai candidatos/colocados dos totais da ficha. A ficha tem várias tabelas
+ * com linha «Total c k» (Opção, Etapa, Distrito, ...); consoante a extração,
+ * a ordem das secções pode variar, por isso recolhem-se todos os totais e
+ * usa-se o mínimo: Opção e Distrito igualam os candidatos reais, enquanto a
+ * Etapa conta contingentes repetidos (sempre maior ou igual).
+ */
 function extractOpcaoTotais(text: string): { candidatos: number; colocados: number } | null {
-  const section = text.match(
-    /OP[CÇ][AÃ]O CANDIDATURA[\s\S]*?Total\s+(\d+)\s+(\d+)/i
-  );
-  if (!section) return null;
-  return { candidatos: Number(section[1]), colocados: Number(section[2]) };
+  if (!/OP[CÇ][AÃ]O CANDIDATURA/i.test(text)) return null;
+  const totals = [...text.matchAll(/\bTotal\s+(\d{1,6})\s+(\d{1,6})\b/gi)].map((m) => ({
+    candidatos: Number(m[1]),
+    colocados: Number(m[2])
+  }));
+  if (!totals.length) return null;
+  return {
+    candidatos: Math.min(...totals.map((t) => t.candidatos)),
+    colocados: Math.min(...totals.map((t) => t.colocados))
+  };
 }
 
 function parseSingleFicha(block: string, phase: '1F' | '2F' | '3F'): DgesParsedRow | null {
