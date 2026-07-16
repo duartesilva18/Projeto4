@@ -318,7 +318,17 @@
 	async function aguardarLayoutGraficos() {
 		await tick();
 		await new Promise((resolve) => {
-			requestAnimationFrame(() => requestAnimationFrame(resolve));
+			// requestAnimationFrame não dispara com o separador em segundo plano;
+			// o setTimeout serve de fallback para a exportação não ficar pendurada.
+			let done = false;
+			const finish = () => {
+				if (!done) {
+					done = true;
+					resolve(undefined);
+				}
+			};
+			requestAnimationFrame(() => requestAnimationFrame(finish));
+			setTimeout(finish, 400);
 		});
 		await new Promise((resolve) => setTimeout(resolve, 200));
 	}
