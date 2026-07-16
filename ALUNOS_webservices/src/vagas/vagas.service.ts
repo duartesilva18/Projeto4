@@ -2001,6 +2001,13 @@ export class VagasService {
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );
 
+      -- campo_origem tem FK para curso_oferta; apagar antes senão o DELETE
+      -- de curso_oferta falha com erro de referência (547).
+      DELETE FROM vagas.campo_origem
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
       DELETE FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano;
 
       DELETE FROM vagas.ano_letivo WHERE id_ano_letivo = @id_ano;
@@ -2062,6 +2069,13 @@ export class VagasService {
       UPDATE vagas.estatistica_acesso
       SET vagas = 0, candidatos = 0, colocados = 0, matriculados = 0,
           candidatos_primeira_op = 0, classificacao_ultimo = 0, media_entrada = 0
+      WHERE id_curso_oferta IN (
+        SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
+      );
+
+      -- Limpar também os marcadores de origem DGES: os valores foram a zero,
+      -- por isso as células não devem continuar assinaladas como importadas.
+      DELETE FROM vagas.campo_origem
       WHERE id_curso_oferta IN (
         SELECT id_curso_oferta FROM vagas.curso_oferta WHERE id_ano_letivo = @id_ano
       );
