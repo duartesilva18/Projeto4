@@ -366,6 +366,20 @@
 
 			const { default: html2canvas } = await import('html2canvas');
 			const { jsPDF } = await import('jspdf');
+			const { getInstanceByDom } = await import('echarts');
+
+			// Captura cada gráfico ECharts como imagem PNG. O html2canvas não
+			// consegue ler o conteúdo dos canvas (cloneNode dá canvas vazios),
+			// por isso substituímos cada canvas por um <img> no clone.
+			const hostsOriginais = /** @type {HTMLElement[]} */ (
+				Array.from(el.querySelectorAll('.echart-host'))
+			);
+			const imagensGraficos = hostsOriginais.map((host) => {
+				const inst = getInstanceByDom(host);
+				return inst
+					? inst.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' })
+					: null;
+			});
 
 			const canvas = await html2canvas(el, {
 				scale: 2,
@@ -376,12 +390,18 @@
 				width: el.scrollWidth,
 				height: el.scrollHeight,
 				onclone: (doc) => {
-					doc.querySelectorAll('.echart-host').forEach((host) => {
-						const src = host.querySelector('canvas');
-						if (!src || !(src instanceof HTMLCanvasElement)) return;
-						const clone = /** @type {HTMLCanvasElement} */ (src.cloneNode(true));
+					const pdfRoot = doc.getElementById('dashboard-pdf-content') ?? doc;
+					const hostsClone = pdfRoot.querySelectorAll('.echart-host');
+					hostsClone.forEach((host, i) => {
+						const dataUrl = imagensGraficos[i];
+						if (!dataUrl) return;
+						const img = doc.createElement('img');
+						img.src = dataUrl;
+						img.style.width = '100%';
+						img.style.height = '100%';
+						img.style.objectFit = 'contain';
 						host.innerHTML = '';
-						host.appendChild(clone);
+						host.appendChild(img);
 					});
 				}
 			});
