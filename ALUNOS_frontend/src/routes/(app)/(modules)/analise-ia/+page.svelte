@@ -459,24 +459,7 @@
 	}
 </script>
 
-<Breadcrum modulo="Proposta de Vagas" objeto="Previsões IA">
-	<svelte:fragment slot="actions">
-		<button
-			type="button"
-			class="btn botao-breadcrumb-on btn-sm fw-bold btn-search-hover ia-update-btn"
-			onclick={atualizarPrevisoes}
-			disabled={carregandoForecast || !filtroAno}
-		>
-			{#if carregandoForecast}
-				<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>
-				A calcular…
-			{:else}
-				<i class="fa fa-magic mr-1" aria-hidden="true"></i>
-				Atualizar previsões
-			{/if}
-		</button>
-	</svelte:fragment>
-</Breadcrum>
+<Breadcrum modulo="Proposta de Vagas" objeto="Previsões IA" />
 
 <div class="container-fluid analise-ia-wrap">
 	<p class="ia-lead">
